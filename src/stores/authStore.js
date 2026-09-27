@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { supabase, setRememberMe } from '@/config/supabase'
+import { supabase, setRememberMe, recoveryPending } from '@/config/supabase'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref(null), userProfile = ref(null), loading = ref(false), error = ref('')
@@ -29,7 +29,7 @@ export const useAuthStore = defineStore('auth', () => {
       const { data, error: problem } = await supabase.auth.getSession()
       if (problem) { error.value = problem.message; return false }
       user.value = data.session?.user || null
-      if (user.value) await fetchUserProfile(user.value.id)
+      if (user.value && !recoveryPending.value) await fetchUserProfile(user.value.id)
       else userProfile.value = null
       return !!user.value
     })()

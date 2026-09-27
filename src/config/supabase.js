@@ -1,3 +1,5 @@
+import { ref } from 'vue'
+import { isRecoveryReturn } from '../lib/recovery.js'
 import { createClient } from '@supabase/supabase-js'
 import { configurationProblem } from '../lib/configuration.js'
 const url = import.meta.env.VITE_SUPABASE_URL || ''
@@ -15,5 +17,11 @@ const storage = {
   },
   removeItem(name) { localStorage.removeItem(name); sessionStorage.removeItem(name) },
 }
+export const recoveryPending = ref(isRecoveryReturn(window.location.href))
 export const supabase = configurationError ? null : createClient(url, key, { auth: { storage } })
 export default supabase
+
+if (supabase) supabase.auth.onAuthStateChange((event) => {
+  if (event === 'PASSWORD_RECOVERY') recoveryPending.value = true
+  if (event === 'SIGNED_OUT') recoveryPending.value = false
+})

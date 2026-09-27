@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore';
-import { configurationError } from '@/config/supabase';
+import { configurationError, recoveryPending } from '@/config/supabase';
 
 // 页面组件
 const LoginPage = () => import('@/pages/LoginPage.vue');
@@ -125,6 +125,12 @@ router.beforeEach(async (to, from, next) => {
   // 检查认证状态
   if (!authStore.user) {
     await authStore.checkAuth();
+  }
+
+  // Complete SDK callback processing before routing, including Site URL fallback.
+  if (recoveryPending.value && to.name !== 'UpdatePassword') {
+    next({ name: 'UpdatePassword', replace: true });
+    return;
   }
 
   // 如果需要认证但未登录
