@@ -15,6 +15,7 @@ export default defineConfig(({ command, mode }) => {
   }
 
   return {
+    base: env.VITE_BASE_PATH || "/",
     plugins: [vue(), tailwindcss()],
     css: { postcss: { plugins: [] } },
     resolve: {

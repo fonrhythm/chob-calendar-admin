@@ -62,7 +62,7 @@ export const useAuthStore = defineStore('auth', () => {
   })
   const register = (email, password) => perform(async () => {
     const { data, error: problem } = await supabase.auth.signUp({ email: email.trim(), password,
-      options: { emailRedirectTo: `${location.origin}/` } })
+      options: { emailRedirectTo: new URL(import.meta.env.BASE_URL, location.origin).href } })
     if (problem) throw problem
     return { success: true, data }
   })
@@ -73,7 +73,7 @@ export const useAuthStore = defineStore('auth', () => {
     return { success: true }
   })
   const resetPassword = email => perform(async () => {
-    const { error: problem } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${location.origin}/update-password` })
+    const { error: problem } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: new URL(import.meta.env.BASE_URL + 'update-password', location.origin).href })
     if (problem) throw problem
     return { success: true }
   })
