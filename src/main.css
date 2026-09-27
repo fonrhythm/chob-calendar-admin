@@ -1,0 +1,123 @@
+@import 'tailwindcss';
+@config '../tailwind.config.js';
+
+@layer base {
+  * {
+    @apply scroll-smooth;
+  }
+
+  html {
+    @apply scroll-smooth;
+  }
+
+  body {
+    @apply bg-gray-50 text-gray-900;
+  }
+
+  a {
+    @apply transition-colors duration-200;
+  }
+
+  button {
+    @apply transition-all duration-200;
+  }
+
+  input,
+  textarea,
+  select {
+    @apply transition-colors duration-200;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply px-4 py-2 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 active:bg-primary-800 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply px-4 py-2 bg-gray-200 text-gray-900 rounded-lg font-medium hover:bg-gray-300 active:bg-gray-400 transition-colors;
+  }
+
+  .btn-ghost {
+    @apply px-4 py-2 text-primary-600 rounded-lg font-medium hover:bg-primary-50 active:bg-primary-100 transition-colors;
+  }
+
+  .input-field {
+    @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all;
+  }
+
+  .card {
+    @apply bg-white rounded-lg shadow-md p-6 border border-gray-100;
+  }
+
+  .card-hover {
+    @apply bg-white rounded-lg shadow-md p-6 border border-gray-100 hover:shadow-lg transition-shadow cursor-pointer;
+  }
+
+  .form-group {
+    @apply mb-6;
+  }
+
+  .form-label {
+    @apply block mb-2 font-medium text-gray-700;
+  }
+
+  .form-error {
+    @apply mt-1 text-sm text-red-600;
+  }
+
+  .badge {
+    @apply inline-block px-3 py-1 text-sm font-medium rounded-full;
+  }
+
+  .badge-primary {
+    @apply bg-primary-100 text-primary-700;
+  }
+
+  .badge-secondary {
+    @apply bg-secondary-100 text-secondary-700;
+  }
+
+  .badge-success {
+    @apply bg-green-100 text-green-700;
+  }
+
+  .badge-warning {
+    @apply bg-yellow-100 text-yellow-700;
+  }
+
+  .badge-danger {
+    @apply bg-red-100 text-red-700;
+  }
+}
+
+/* Shared CHOB visual language. */
+:root {
+  --chob-paper: #faf9f7;
+  --chob-ink: #242622;
+}
+body {
+  background: var(--chob-paper);
+  color: var(--chob-ink);
+}
+.card {
+  border-radius: 22px !important;
+  border: 1px solid #e6e1d9 !important;
+  box-shadow: none !important;
+}
+.btn-primary {
+  background: #343b36 !important;
+  border-radius: 12px !important;
+}
+.btn-secondary {
+  border-radius: 12px !important;
+}
+.input-field {
+  border-radius: 12px !important;
+}
+aside {
+  background: #faf9f7 !important;
+}
+.text-primary-600 {
+  color: #5b6a5f !important;
+}

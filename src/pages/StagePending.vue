@@ -1,0 +1,1 @@
+<template><div class="bg-white rounded-xl p-8 space-y-3"><h1 class="text-xl font-bold">此模块将在下一阶段接入</h1><p class="text-gray-600">当前先完成登录、艺人资料库、CP配对与艺人导入。活动和事项将在艺人测试完成后接入。</p><router-link class="text-primary-600 inline-block" to="/artists">前往艺人资料库 →</router-link></div></template>
