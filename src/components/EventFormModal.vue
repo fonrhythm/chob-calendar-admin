@@ -1,4 +1,6 @@
 <script setup>
+import CatalogPicker from './CatalogPicker.vue';
+import { selectionTypes } from '../lib/artist-selection';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { ACTIVITY_TYPES, activityCategory } from '@/lib/activity-types';
 import { rpc } from '@/lib/api';
@@ -41,6 +43,28 @@ form.value.attributes.artist_types =
   (form.value.attributes.artist_type
     ? [form.value.attributes.artist_type]
     : []);
+const catalog = computed(() => [
+  ...(props.artists || []),
+  ...props.pairs
+    .filter((p) => !p.deleted_at)
+    .map((p) => ({
+      id: 'cp:' + p.id,
+      name: p.cp_name,
+      categories: ['CP'],
+      member_ids: [p.artist_1_id, p.artist_2_id],
+    })),
+]);
+const cpMembers = new Set(
+  props.pairs
+    .filter((p) => (form.value.attributes.cp_ids || []).includes(p.id))
+    .flatMap((p) => [p.artist_1_id, p.artist_2_id]),
+);
+const selectedEntities = ref(
+  form.value.attributes.artist_selections || [
+    ...form.value.artist_ids.filter((id) => !cpMembers.has(id)),
+    ...form.value.attributes.cp_ids.map((id) => 'cp:' + id),
+  ],
+);
 const pictureText = ref((form.value.attributes.picture_urls || []).join('\n'));
 const timeText = ref(
   form.value.attributes.time_text || form.value.time?.slice(0, 5) || '',
@@ -50,6 +74,7 @@ const initial = JSON.stringify([
   tasks.value,
   pictureText.value,
   timeText.value,
+  selectedEntities.value,
 ]);
 const newDate = ref(''),
   notifyUsers = ref(false),
@@ -69,6 +94,7 @@ const dirty = computed(
       tasks.value,
       pictureText.value,
       timeText.value,
+      selectedEntities.value,
     ]),
 );
 const pictures = computed(() => imageUrls(pictureText.value));
@@ -142,18 +168,23 @@ async function save(status) {
   const payload = {
     ...form.value,
     artist_ids: [
-      ...new Set([
-        ...form.value.artist_ids,
-        ...props.pairs
-          .filter((p) => form.value.attributes.cp_ids.includes(p.id))
-          .flatMap((p) => [p.artist_1_id, p.artist_2_id]),
-      ]),
+      ...new Set(
+        selectedEntities.value.flatMap(
+          (id) => catalog.value.find((a) => a.id === id)?.member_ids || [id],
+        ),
+      ),
     ],
     status,
     time: eventTime(timeText.value),
     attributes: {
       ...form.value.attributes,
-      artist_type: form.value.attributes.artist_types[0] || '',
+      artist_type:
+        selectionTypes(catalog.value, selectedEntities.value)[0] || '',
+      artist_types: selectionTypes(catalog.value, selectedEntities.value),
+      artist_selections: selectedEntities.value,
+      cp_ids: selectedEntities.value
+        .filter((id) => id.startsWith('cp:'))
+        .map((id) => id.slice(3)),
       time_text: timeText.value.trim(),
       picture_urls: pictures.value,
     },
@@ -212,43 +243,7 @@ onUnmounted(() => {
       </header>
       <div class="event-body">
         <fieldset :disabled="busy">
-          <div class="field">
-            <label>艺人名称 <b>*</b></label
-            ><ArtistMultiSelect
-              v-model="form.artist_ids"
-              :artists="artists"
-              :invalid="tried && !form.artist_ids.length"
-            /><small>支持多选。日历 chip 优先显示这里关联的艺人姓名。</small>
-          </div>
-          <fieldset class="field">
-            <legend>CP（可与组合同时选择）</legend>
-            <div class="artist-kind-options">
-              <label
-                v-for="pair in pairs.filter((p) => !p.deleted_at)"
-                :key="pair.id"
-                ><input
-                  type="checkbox"
-                  v-model="form.attributes.cp_ids"
-                  :value="pair.id"
-                />{{ pair.cp_name }}</label
-              >
-            </div>
-            <small>保存时会关联 CP 成员；组合继续在上方艺人栏选择。</small>
-          </fieldset>
-          <fieldset class="field">
-            <legend>艺人类别（可多选）</legend>
-            <div class="artist-kind-options">
-              <label v-for="value in artistTypes" :key="value"
-                ><input
-                  type="checkbox"
-                  v-model="form.attributes.artist_types"
-                  :value="value"
-                />
-                {{ value }}</label
-              >
-            </div>
-            <small>CP 与组合可以同时选择；与活动类型、事项分类分别保存。</small>
-          </fieldset>
+          <CatalogPicker v-model="selectedEntities" :catalog="catalog" />
           <label class="field"
             >活动名称 <b>*</b
             ><input
@@ -275,9 +270,17 @@ onUnmounted(() => {
               <option value="cancelled">已取消</option>
             </select></label
           ><label class="field"
-            ><input type="checkbox" v-model="form.attributes.roll_call" />
-            有点名</label
-          >
+            >点名
+            <input
+              style="
+                width: 16px;
+                height: 16px;
+                min-height: 0;
+                display: inline-block;
+              "
+              type="checkbox"
+              v-model="form.attributes.roll_call"
+          /></label>
           <section v-if="event" class="task-panel">
             <h3>延期至新日期</h3>
             <p class="section-help">
@@ -340,7 +343,7 @@ onUnmounted(() => {
               aria-label="城市或线上直播"
               required
               maxlength="200"
-              placeholder="城市名、线上直播，或填写“非公开”"
+              placeholder="填写城市名或“非公开”，如果是线上直播直接填“线上直播”"
           /></label>
           <label class="field"
             >场地 <b>*</b

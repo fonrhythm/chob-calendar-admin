@@ -31,6 +31,7 @@ test('community workflow enforces ownership, edit limits, immediate flags, reply
       '007_task_categories.sql',
       '009_activity_categories.sql',
       '012_group_save_display.sql',
+      '013_artist_selection.sql',
     ]) {
       const sql = await readFile(
         new URL('../supabase/' + file, import.meta.url),
@@ -66,6 +67,9 @@ test('community workflow enforces ownership, edit limits, immediate flags, reply
       unmatched_artist: 'New artist',
       images: [],
       artist_ids: [],
+      artist_selections: ['cp:test', 'group:test'],
+      artist_types: ['CP', 'group', '组合'],
+      roll_call: true,
     };
     await as(null, 'anon');
     await assert.rejects(
@@ -107,6 +111,12 @@ test('community workflow enforces ownership, edit limits, immediate flags, reply
       'venue',
     ]);
     assert.equal(feed.records.find((r) => r.id === id).created_by, undefined);
+    assert.equal(feed.records.find((r) => r.id === id).artist_count, 2);
+    assert.deepEqual(
+      [...feed.records.find((r) => r.id === id).artist_types].sort(),
+      ['CP', '组合'],
+    );
+    assert.equal(feed.records.find((r) => r.id === id).roll_call, true);
     await as(other);
     assert.equal(
       (await db.query('select * from chob_corrections')).rows.length,
