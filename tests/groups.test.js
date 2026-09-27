@@ -5,8 +5,8 @@ import { PGlite } from '@electric-sql/pglite';
 import { groupRows, isGroup } from '../src/lib/groups.js';
 test('group/band 与中文组合类别都能显示；保留艺人ID供活动选择', () => {
   const rows = [
-    { id: 'a', name: 'One', categories: ['group'] },
-    { id: 'b', name: 'Band', categories: ['band'], group_member_ids: ['c'] },
+    { id: 'a', name: 'One', categories: ['group'], group_kind: 'group' },
+    { id: 'b', name: 'Band', categories: ['band'], group_kind: 'band', group_member_ids: ['c'] },
     { id: 'c', name: 'Solo', categories: ['歌手'] },
   ];
   assert.deepEqual(
@@ -15,8 +15,8 @@ test('group/band 与中文组合类别都能显示；保留艺人ID供活动选�
   );
   assert.equal(groupRows(rows)[1].type, '乐队');
   assert.deepEqual(groupRows(rows)[1].members, ['c']);
-  assert.equal(isGroup({ type: 'group / singer' }), true);
-  assert.equal(isGroup({ categories: ['组合'] }), true);
+  assert.equal(isGroup({ type: 'group / singer' }), false);
+  assert.equal(isGroup({ categories: ['组合'] }), false);
 });
 test('组合保存、编辑、回收站、成员保护及权限', async () => {
   const db = new PGlite(),
@@ -80,6 +80,7 @@ test('组合保存、编辑、回收站、成员保护及权限', async () => {
     );
     await db.exec(migration);
     await db.exec(migration);
+    await db.exec(await readFile(new URL('../supabase/010_independent_groups.sql',import.meta.url),'utf8'));
     async function as(id, role = 'authenticated') {
       await db.exec(`reset role;set role ${role}`);
       await db.query("select set_config('request.jwt.claim.sub',$1,false)", [
@@ -140,14 +141,14 @@ test('组合保存、编辑、回收站、成员保护及权限', async () => {
       group.updated_at,
     );
     await assert.rejects(save(payload, group.id, group.updated_at), /已被修改/);
-    await db.query("select public.chob_set_deleted('artists',$1,true)", [
+    await db.query("select public.chob_set_group_deleted($1,true)", [
       group.id,
     ]);
     await db.query("select public.chob_set_deleted('artists',$1,true)", [
       member.id,
     ]);
     await assert.rejects(
-      db.query("select public.chob_set_deleted('artists',$1,false)", [
+      db.query("select public.chob_set_group_deleted($1,false)", [
         group.id,
       ]),
       /先恢复/,
@@ -155,7 +156,7 @@ test('组合保存、编辑、回收站、成员保护及权限', async () => {
     await db.query("select public.chob_set_deleted('artists',$1,false)", [
       member.id,
     ]);
-    await db.query("select public.chob_set_deleted('artists',$1,false)", [
+    await db.query("select public.chob_set_group_deleted($1,false)", [
       group.id,
     ]);
     const restored = (
@@ -167,6 +168,30 @@ test('组合保存、编辑、回收站、成员保护及权限', async () => {
     await db.query("select public.chob_set_deleted('artists',$1,true)", [
       member.id,
     ]);
+
+    const person1=(await db.query('select chob_save_artist($1) as row',[JSON.stringify({name:'Tutor example',categories:['group'],aliases:[]})])).rows[0].row;
+    const person2=(await db.query('select chob_save_artist($1) as row',[JSON.stringify({name:'Partner example',categories:['actor'],aliases:[]})])).rows[0].row;
+    const cp=(await db.query('select chob_save_cp($1) as row',[JSON.stringify({cp_name:'Example CP',artist_1_id:person1.id,artist_2_id:person2.id})])).rows[0].row;
+    const independent=await save({name:'Independent group',type:'组合',members:[person1.id,person2.id]});
+    await db.query("select chob_set_deleted('cp_pairs',$1,true)",[cp.id]);
+    assert.deepEqual((await db.query('select group_member_ids from artists where id=$1',[independent.id])).rows[0].group_member_ids,[person1.id,person2.id].sort());
+    await db.query("select chob_set_deleted('cp_pairs',$1,false)",[cp.id]);
+    await db.query('select chob_set_group_deleted($1,true)',[independent.id]);
+    assert.equal((await db.query('select deleted_at from cp_pairs where id=$1',[cp.id])).rows[0].deleted_at,null);
+    assert.equal((await db.query('select deleted_at from artists where id=$1',[person1.id])).rows[0].deleted_at,null);
+    await db.query('select chob_set_group_deleted($1,false)',[independent.id]);
+    await db.exec('reset role');
+    const cleanup=await readFile(new URL('../supabase/011_reset_legacy_groups.sql',import.meta.url),'utf8');
+    await db.exec(cleanup);
+    assert.equal((await db.query('select deleted_at from artists where id=$1',[person1.id])).rows[0].deleted_at,null);
+    assert.deepEqual((await db.query('select categories from artists where id=$1',[person1.id])).rows[0].categories,[]);
+    assert.equal((await db.query('select deleted_at from cp_pairs where id=$1',[cp.id])).rows[0].deleted_at,null);
+    assert.ok((await db.query('select deleted_at from artists where id=$1',[independent.id])).rows[0].deleted_at);
+    await as(admin);
+    const fresh=await save({name:'New after reset',type:'乐队',members:[person1.id]});
+    await db.exec('reset role');
+    await db.exec(cleanup);
+    assert.equal((await db.query('select deleted_at from artists where id=$1',[fresh.id])).rows[0].deleted_at,null);
     await as(fan);
     await assert.rejects(
       save({ ...payload, name: 'Denied', members: [] }),

@@ -272,8 +272,8 @@ function remove(entity, row) {
   )
     return;
   return action(() =>
-    rpc('chob_set_deleted', {
-      entity: entity === 'groups' ? 'artists' : entity,
+    rpc(entity === 'groups' ? 'chob_set_group_deleted' : 'chob_set_deleted', {
+      ...(entity === 'groups' ? {} : { entity }),
       record_id: row.id,
       deleted,
     }),
@@ -303,8 +303,8 @@ async function batchDelete(entity) {
 
     let removed = 0;
     for (const id of [...selected]) {
-      await rpc('chob_set_deleted', {
-        entity: entity === 'groups' ? 'artists' : entity,
+      await rpc(entity === 'groups' ? 'chob_set_group_deleted' : 'chob_set_deleted', {
+        ...(entity === 'groups' ? {} : { entity }),
         record_id: id,
         deleted: true,
       });
@@ -401,7 +401,7 @@ onMounted(load);
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h1 class="text-2xl font-bold">艺人资料库</h1>
-        <p class="text-gray-500 mt-1">先建立艺人资料，再为活动关联艺人和CP。</p>
+        <p class="text-gray-500 mt-1">CP 配对与组合成员关系独立：同一艺人可以同时参与两者，删除配对或组合不会删除个人艺人。</p>
       </div>
       <div v-if="admin && loaded" class="flex flex-wrap gap-2">
         <button class="btn-secondary px-4 py-2" @click="downloadTemplate">
