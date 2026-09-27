@@ -1,3 +1,4 @@
+export const displayArtistName = (artist) => String(artist?.en_name || '').trim() || artist?.name || '';
 import { pinyin } from 'pinyin-pro';
 export const normalize = (value) =>
   String(value ?? '')
@@ -87,6 +88,8 @@ const columns = {
   艺人名称: 'name',
   姓名: 'name',
   en_name: 'en_name',
+  display_name: 'en_name',
+  显示名称: 'en_name',
   英文名: 'en_name',
   company: 'company',
   公司: 'company',

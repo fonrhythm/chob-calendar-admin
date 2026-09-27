@@ -81,6 +81,7 @@ test('组合保存、编辑、回收站、成员保护及权限', async () => {
     await db.exec(migration);
     await db.exec(migration);
     await db.exec(await readFile(new URL('../supabase/010_independent_groups.sql',import.meta.url),'utf8'));
+    for(const file of ['008_artist_names.sql','012_group_save_display.sql','012_group_save_display.sql']) await db.exec(await readFile(new URL('../supabase/'+file,import.meta.url),'utf8'));
     async function as(id, role = 'authenticated') {
       await db.exec(`reset role;set role ${role}`);
       await db.query("select set_config('request.jwt.claim.sub',$1,false)", [
@@ -89,7 +90,7 @@ test('组合保存、编辑、回收站、成员保护及权限', async () => {
     }
     async function save(payload, id = null, version = null) {
       return (
-        await db.query('select public.chob_save_group($1,$2,$3) as row', [
+        await db.query('select public.chob_save_group_v2($1,$2,$3) as row', [
           JSON.stringify(payload),
           id,
           version,
@@ -116,7 +117,7 @@ test('组合保存、编辑、回收站、成员保护及权限', async () => {
       (await db.query('select * from artists where id=$1', [group.id])).rows
         .length,
     );
-    await assert.rejects(save(payload), /duplicate key/);
+    await assert.rejects(save(payload), /duplicate key|同名/);
     await assert.rejects(
       save(
         { ...payload, name: 'Self', members: [group.id] },

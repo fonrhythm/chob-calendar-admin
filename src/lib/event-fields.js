@@ -1,3 +1,4 @@
+import { displayArtistName } from './artists.js';
 import { activityCategory } from './activity-types.js';
 import { safeWebUrl, validateTasks } from './tasks.js';
 export const recordLabel = (item) =>
@@ -11,7 +12,7 @@ export const imageUrls = (value) => [
 ];
 export const eventArtistNames = (event, artists) =>
   (event.artist_ids || [])
-    .map((id) => artists.find((a) => a.id === id)?.name || '未知艺人')
+    .map((id) => displayArtistName(artists.find((a) => a.id === id)) || '未知艺人')
     .join(' / ');
 export function validateEvent(event, tasks = []) {
   if (!event.title?.trim()) return '请填写活动名称。';

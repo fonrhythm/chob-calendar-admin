@@ -4,6 +4,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { allRows, rpc } from '@/lib/api';
 import {
   artistPayload,
+  displayArtistName,
   searchArtist,
   parseCsv,
   rowsToArtists,
@@ -11,6 +12,7 @@ import {
 } from '@/lib/artists';
 import ModalShell from '@/components/common/ModalShell.vue';
 import ArtistMultiSelect from '@/components/ArtistMultiSelect.vue';
+import { groupSaveError } from '@/lib/rpc-errors';
 import { groupRows, isGroup } from '@/lib/groups';
 
 const auth = useAuthStore(),
@@ -249,17 +251,13 @@ function savePair() {
 function saveGroup() {
   return action(async () => {
     try {
-      return await rpc('chob_save_group', {
+      return await rpc('chob_save_group_v2', {
         payload: form.value,
         record_id: editing.value?.id || null,
         expected_updated_at: editing.value?.updated_at || null,
       });
     } catch (e) {
-      if (/chob_save_group|schema cache/i.test(e.message))
-        throw new Error(
-          '组合保存接口尚未安装，请先在 Supabase 执行 005_groups.sql，然后刷新页面。',
-        );
-      throw e;
+      throw new Error(groupSaveError(e));
     }
   });
 }
@@ -374,7 +372,7 @@ function importRows() {
 }
 
 function downloadTemplate() {
-  const blob = new Blob(['\uFEFF艺人名称,英文名,公司,类别,别名\r\n'], {
+  const blob = new Blob(['\uFEFF艺人名称,显示名称,公司,类别,别名\r\n'], {
     type: 'text/csv;charset=utf-8',
   });
   const url = URL.createObjectURL(blob),
@@ -386,7 +384,7 @@ function downloadTemplate() {
 }
 
 const artistName = (id) =>
-  artists.value.find((a) => a.id === id)?.name || '未找到艺人';
+  displayArtistName(artists.value.find((a) => a.id === id)) || '未找到艺人';
 
 function closeCpDropdown(field) {
   setTimeout(() => {
@@ -487,7 +485,7 @@ onMounted(load);
         class="input-field"
         :placeholder="
           tab === 'artists'
-            ? '搜索名字、英文名、别名或拼音'
+            ? '搜索名字、显示名称、别名或拼音'
             : tab === 'cp'
               ? '搜索CP名称'
               : '搜索组合名称'
@@ -523,7 +521,7 @@ onMounted(load);
         class="px-3 py-1 text-sm"
         @click="sortBy = 'name-en'"
       >
-        按英文名
+        按显示名称
       </button>
       <button
         :class="sortBy === 'company' ? 'btn-primary' : 'btn-secondary'"
@@ -623,7 +621,7 @@ onMounted(load);
                 class="mt-1"
               />
               <div class="flex-1">
-                <h2 class="font-bold text-lg">{{ a.name }}</h2>
+                <h2 class="font-bold text-lg">{{ displayArtistName(a) }}</h2>
                 <p class="text-gray-500">
                   {{ a.en_name }} · {{ a.company || '未填写公司' }}
                 </p>
@@ -780,7 +778,7 @@ onMounted(load);
               "
             />
             <div class="flex-1">
-              <h2 class="font-bold">{{ g.name }}</h2>
+              <h2 class="font-bold">{{ displayArtistName(g) }}</h2>
               <p class="text-gray-500 text-sm">{{ g.type }}</p>
               <p v-if="g.members?.length" class="text-sm mt-2">
                 成员：{{ g.members.map((id) => artistName(id)).join('、') }}
@@ -854,7 +852,7 @@ onMounted(load);
             class="input-field mt-1"
         /></label>
         <label class="block"
-          >英文名<input v-model="form.en_name" class="input-field mt-1"
+          >显示名称<input v-model="form.en_name" class="input-field mt-1"
         /></label>
         <label class="block"
           >公司<input v-model="form.company" class="input-field mt-1"
@@ -920,7 +918,7 @@ onMounted(load);
                 type="button"
                 class="w-full text-left px-3 py-2 hover:bg-gray-100 border-b last:border-b-0"
               >
-                {{ a.name }}
+                {{ displayArtistName(a) }}
                 <span class="text-gray-500 text-sm">({{ a.company }})</span>
               </button>
             </div>
@@ -957,7 +955,7 @@ onMounted(load);
           </select></label
         >
         <label class="block"
-          >英文名称<input v-model="form.en_name" class="input-field mt-1"
+          >显示名称（选填）<input v-model="form.en_name" class="input-field mt-1"
         /></label>
         <label class="block"
           >公司<input v-model="form.company" class="input-field mt-1"
@@ -1001,7 +999,7 @@ onMounted(load);
           <label
             v-for="(label, key) in {
               name: '艺人名称',
-              en_name: '英文名',
+              en_name: '显示名称',
               company: '公司',
               categories: '类别（分号分隔）',
               aliases: '别名（分号分隔）',

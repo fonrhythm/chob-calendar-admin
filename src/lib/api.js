@@ -1,7 +1,8 @@
+import { rpcError } from './rpc-errors.js'
 import { supabase } from '@/config/supabase'
 export async function rpc(name, args) {
   const { data, error } = await supabase.rpc(name, args)
-  if (error) throw new Error(error.code === '23505' ? '名称重复，请核对现有资料后重试。' : error.message)
+  if (error) throw rpcError(error)
   return data
 }
 export async function allRows(table) {

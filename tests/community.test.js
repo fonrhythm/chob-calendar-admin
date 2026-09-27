@@ -18,7 +18,7 @@ test('community workflow enforces ownership, edit limits, immediate flags, reply
       .replaceAll('${fan}', fan);
     await db.exec(setup);
     await db.exec(`create schema chob_private; create table public.cp_pairs(id uuid primary key,cp_name text,artist_1_id uuid,artist_2_id uuid,deleted_at timestamptz);
-   alter table artists add column name text, add column company text, add column categories text[],add column group_kind text,add column deleted_at timestamptz;
+   alter table artists add column name text, add column en_name text, add column group_member_ids uuid[] default '{}', add column company text, add column categories text[],add column group_kind text,add column deleted_at timestamptz;
    create function chob_private.active_member() returns boolean language sql security definer set search_path='' as $$select exists(select 1 from public.users where id=auth.uid() and is_active and email_verified)$$;
    create function chob_private.is_admin() returns boolean language sql security definer set search_path='' as $$select exists(select 1 from public.users where id=auth.uid() and role='admin' and is_active and email_verified)$$;
    create function chob_private.require_admin() returns void language plpgsql security definer set search_path='' as $$begin if not chob_private.is_admin() then raise exception '仅管理员';end if;end$$;
@@ -30,6 +30,7 @@ test('community workflow enforces ownership, edit limits, immediate flags, reply
       '006_community.sql',
       '007_task_categories.sql',
       '009_activity_categories.sql',
+      '012_group_save_display.sql',
     ]) {
       const sql = await readFile(
         new URL('../supabase/' + file, import.meta.url),
