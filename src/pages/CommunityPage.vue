@@ -309,6 +309,12 @@ onMounted(load);
           <p class="whitespace-pre-wrap">{{ n.body }}</p>
           <p class="text-sm text-gray-500">{{ n.published ? '前台显示' : '未公开' }} · {{ title(n.event_id) }}</p>
           <button class="btn-secondary" @click="editingNotice = n.id">编辑</button>
+          <button
+            v-if="n.event_id && /延期/.test(n.title + n.body) && events.find((e) => e.id === n.event_id)?.attributes?.event_status !== 'postponed'"
+            class="btn-secondary ml-2"
+            :disabled="busy"
+            @click="perform(() => rpc('chob_set_postponement', { target: n.event_id, new_date: null, notify_users: false, source_url: n.source_url }))"
+          >标记关联活动延期（日期待定）</button>
         </template>
       </article></template
     >
