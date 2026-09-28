@@ -33,32 +33,41 @@ const candidates = computed(() =>
     .slice(0, 50),
 );
 const label = (a) => a?.en_name?.trim() || a?.name || '';
+function closeLater() {
+  setTimeout(() => {
+    open.value = false;
+  }, 180);
+}
 function choose(id) {
   emit('update:modelValue', [...new Set([...props.modelValue, id])]);
   query.value = '';
+  open.value = false;
 }
 </script>
 <template>
   <section class="catalog-picker">
-    <fieldset>
-      <legend>艺人类别筛选</legend>
-      <label v-for="type in types" :key="type"
-        ><input type="checkbox" v-model="filters" :value="type" />{{
-          type
-        }}</label
-      >
-    </fieldset>
+    <details class="catalog-filter">
+      <summary>
+        艺人类别筛选{{ filters.length ? `（${filters.join('、')}）` : '' }}
+      </summary>
+      <fieldset>
+        <label v-for="type in types" :key="type"
+          ><input type="checkbox" v-model="filters" :value="type" />{{
+            type
+          }}</label
+        >
+      </fieldset>
+    </details>
     <label class="catalog-search"
       >艺人名称<input
         v-model="query"
-        placeholder="输入个人、CP、组合或乐队名称"
+        placeholder="输入名称搜索，或点击选择 ▾"
         @focus="open = true"
         @input="open = true"
         @keydown.enter.prevent="candidates[0] && choose(candidates[0].id)"
-        @keydown.esc="open = false" /></label
-    ><button type="button" class="catalog-toggle" @click="open = !open">
-      {{ open ? '收起选项' : '展开选项' }} ▾
-    </button>
+        @keydown.esc="open = false"
+        @blur="closeLater"
+    /></label>
     <div class="catalog-selected">
       <button
         v-for="id in modelValue"

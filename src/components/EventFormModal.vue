@@ -34,8 +34,9 @@ tasks.value = tasks.value.map((task) => ({
   ...task,
   task_type: taskCategory(task.task_type),
 }));
-form.value.attributes.activity_category ||= activityCategory(
-  props.types?.find((t) => t.id === form.value.event_type_id)?.name,
+form.value.attributes.activity_category = activityCategory(
+  form.value.attributes.activity_category ||
+    props.types?.find((t) => t.id === form.value.event_type_id)?.name,
 );
 form.value.attributes.cp_ids ||= [];
 form.value.attributes.artist_types =
