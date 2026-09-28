@@ -9,7 +9,27 @@ import {
 import { recordLabel } from '@/lib/event-fields';
 import { importEventBundles } from '@/lib/events';
 const props = defineProps({ workspace: Object }),
-  emit = defineEmits(['close', 'saved']);
+  emit = defineEmits(['close', 'saved', 'imported']);
+const completed = ref(0),
+  editingId = ref('');
+const editFields = {
+  name: '艺人（多人用 / 分隔）',
+  activity: '活动名称',
+  date: '日期',
+  time: '时间',
+  venue: '场地',
+  city: '城市',
+  category: '活动类型',
+  region: '地区',
+  participation_condition: '参与方式',
+  picture_url: '图片链接',
+  ticket_url: '票务链接',
+  note: '备注',
+  sale_date: '开票日期',
+  sale_time: '开票时间',
+  sale_end_date: '开票结束日期',
+  sale_end_time: '开票结束时间',
+};
 const rows = ref([]),
   filename = ref(''),
   error = ref(''),
@@ -50,14 +70,19 @@ async function choose(e) {
   }
 }
 async function submit() {
-  if (busy.value || invalid.value || !preview.value.length) return;
+  const valid = preview.value.filter((r) => !r.problems.length);
+  if (busy.value || !valid.length) return;
   busy.value = true;
   error.value = '';
   try {
     await importEventBundles(
-      preview.value.map((r) => ({ event: r.event, tasks: r.tasks })),
+      valid.map((r) => ({ event: r.event, tasks: r.tasks })),
     );
-    emit('saved');
+    const ids = new Set(valid.map((r) => r.event.id));
+    rows.value = rows.value.filter((r) => !ids.has(r.id));
+    completed.value += valid.length;
+    emit('imported');
+    if (!rows.value.length) emit('saved');
   } catch (e) {
     error.value = e.message;
   } finally {
@@ -80,7 +105,7 @@ function downloadTemplate() {
     <div class="space-y-5">
       <p class="text-sm text-gray-600">
         支持 CSV / Excel（第一个工作表），每批最多 200
-        条。先校验并预览，全部通过后一次导入为草稿；失败不会只导入一半。
+        条。先校验并预览，可在预览中修正，或先导入通过校验的行；剩余行保留供继续修改。
       </p>
       <div class="flex flex-wrap gap-3">
         <label class="btn-secondary cursor-pointer"
@@ -92,11 +117,11 @@ function downloadTemplate() {
             aria-label="选择导入文件"
             @change="choose" /></label
         ><button type="button" class="btn-ghost" @click="downloadTemplate">
-          下载 Excel 模板（含示例和下拉）
+          下载 Excel 模板
         </button>
       </div>
       <p class="text-sm text-gray-500">
-        模板的“示例”行不会导入；填写真实内容后将行用途改为“导入”。艺人填写资料库中的名称、显示名称或唯一别名，多人用分号分隔。活动类型使用下拉菜单；参与方式可留空，在下方统一选择。旧英文表头仍可导入。
+        请删除模板中的提示行和示例活动后填写真实内容。未匹配艺人可先导入为待匹配草稿；日期、链接等错误需修正后再导入。
       </p>
       <div class="grid sm:grid-cols-2 gap-4">
         <label
@@ -129,6 +154,9 @@ function downloadTemplate() {
           </select></label
         >
       </div>
+      <p v-if="completed" role="status">
+        已导入 {{ completed }} 条，剩余 {{ rows.length }} 条待处理。
+      </p>
       <p v-if="reading" role="status">正在读取文件…</p>
       <p
         v-if="error"
@@ -155,7 +183,24 @@ function downloadTemplate() {
               <tr v-for="r in preview" :key="r.event.id">
                 <td class="p-3">{{ r.line }}</td>
                 <td class="p-3">
-                  <b>{{ r.names }}</b>
+                  <b>{{ r.names }}</b
+                  ><button
+                    class="btn-ghost"
+                    @click="
+                      editingId = editingId === r.event.id ? '' : r.event.id
+                    "
+                  >
+                    修正此行
+                  </button>
+                  <div v-if="editingId === r.event.id" class="import-editor">
+                    <label v-for="(label, key) in editFields" :key="key"
+                      >{{ label
+                      }}<input
+                        v-model="rows.find((x) => x.id === r.event.id).raw[key]"
+                        :aria-label="label"
+                        :disabled="busy"
+                    /></label>
+                  </div>
                   <p>{{ r.event.title }}</p>
                 </td>
                 <td class="p-3 whitespace-nowrap">
@@ -179,7 +224,7 @@ function downloadTemplate() {
           </table>
         </div>
         <p v-if="invalid" class="text-sm text-gray-500">
-          请在原文件中修正对应行后重新选择文件。姓名仅自动关联唯一的准确匹配，不会擅自新建艺人。
+          点击“修正此行”即可直接修改。无法匹配的艺人会保留原始名称，导入后在后台完成匹配才能发布。
         </p></template
       >
       <div class="flex justify-end gap-3">
@@ -191,12 +236,33 @@ function downloadTemplate() {
           取消</button
         ><button
           class="btn-primary"
-          :disabled="busy || reading || !rows.length || !!invalid"
+          :disabled="busy || reading || rows.length === invalid"
           @click="submit"
         >
-          {{ busy ? '正在导入…' : `导入 ${rows.length} 条草稿` }}
+          {{
+            busy ? '正在导入…' : `导入 ${rows.length - invalid} 条可导入草稿`
+          }}
         </button>
       </div>
     </div>
   </ModalShell>
 </template>
+
+<style scoped>
+.import-editor {
+  display: grid;
+  gap: 8px;
+  min-width: 260px;
+  max-height: 320px;
+  overflow: auto;
+}
+.import-editor label {
+  display: grid;
+  gap: 3px;
+}
+.import-editor input {
+  border: 1px solid #bbb;
+  border-radius: 6px;
+  padding: 6px;
+}
+</style>

@@ -38,6 +38,10 @@ function closeLater() {
     open.value = false;
   }, 180);
 }
+function addFilter(e) {
+  if (e.target.value) filters.value.push(e.target.value);
+  e.target.value = '';
+}
 function choose(id) {
   emit('update:modelValue', [...new Set([...props.modelValue, id])]);
   query.value = '';
@@ -46,23 +50,36 @@ function choose(id) {
 </script>
 <template>
   <section class="catalog-picker">
-    <details class="catalog-filter">
-      <summary>
-        艺人类别筛选{{ filters.length ? `（${filters.join('、')}）` : '' }}
-      </summary>
-      <fieldset>
-        <label v-for="type in types" :key="type"
-          ><input type="checkbox" v-model="filters" :value="type" />{{
-            type
-          }}</label
+    <label class="catalog-kind"
+      >艺人类别 <small>可多选</small
+      ><select aria-label="艺人类别" @change="addFilter($event)">
+        <option value="">请选择</option>
+        <option
+          v-for="type in types.filter((t) => !filters.includes(t))"
+          :key="type"
+          :value="type"
         >
-      </fieldset>
-    </details>
+          {{ type }}
+        </option>
+      </select></label
+    >
+    <div class="catalog-selected">
+      <button
+        v-for="type in filters"
+        :key="type"
+        type="button"
+        @click="filters = filters.filter((t) => t !== type)"
+      >
+        {{ type }} ×
+      </button>
+    </div>
     <label class="catalog-search"
-      >艺人名称<input
+      >艺人名称 <small>可多选</small
+      ><input
         v-model="query"
         placeholder="输入名称搜索，或点击选择 ▾"
         @focus="open = true"
+        @click="open = true"
         @input="open = true"
         @keydown.enter.prevent="candidates[0] && choose(candidates[0].id)"
         @keydown.esc="open = false"
@@ -178,5 +195,31 @@ function choose(id) {
   font-size: 12px;
   opacity: 0.7;
   margin-top: 8px;
+}
+.catalog-kind {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.catalog-kind select {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #aaa6;
+  border-radius: 10px;
+  background: var(--surface, #fff);
+  color: inherit;
+}
+.catalog-kind small,
+.catalog-search small {
+  display: inline;
+  font-size: 12px;
+  font-weight: 400;
+}
+.catalog-search input {
+  background: var(--surface, #fff);
+  padding-right: 32px;
+}
+.catalog-search {
+  margin-top: 16px;
 }
 </style>

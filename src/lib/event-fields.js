@@ -12,7 +12,9 @@ export const imageUrls = (value) => [
 ];
 export const eventArtistNames = (event, artists) =>
   (event.artist_ids || [])
-    .map((id) => displayArtistName(artists.find((a) => a.id === id)) || '未知艺人')
+    .map(
+      (id) => displayArtistName(artists.find((a) => a.id === id)) || '未知艺人',
+    )
     .join(' / ');
 export function validateEvent(event, tasks = []) {
   if (!event.title?.trim()) return '请填写活动名称。';
@@ -24,7 +26,19 @@ export function validateEvent(event, tasks = []) {
   )
     return '请填写有效的活动日期。';
   if (!event.location?.trim()) return '请填写场地；线上活动可填写直播平台。';
-  if (!event.artist_ids?.length) return '请至少选择一位参与艺人。';
+  if (
+    event.status === 'published' &&
+    event.attributes?.unmatched_import_names?.length
+  )
+    return '请先完成待匹配艺人，再发布。';
+  if (
+    !event.artist_ids?.length &&
+    !(
+      event.status === 'draft' &&
+      event.attributes?.unmatched_import_names?.length
+    )
+  )
+    return '请至少选择一位参与艺人。';
   if (!event.attributes?.region?.trim()) return '请选择地区。';
   if (!event.location_region?.trim()) return '请填写城市或线上直播。';
   if (!event.participation_condition) return '请选择参与方式。';

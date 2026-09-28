@@ -1,4 +1,5 @@
 <script setup>
+import { publishTimestamp, localDateTime } from '../lib/publishing';
 import CatalogPicker from './CatalogPicker.vue';
 import { selectionTypes } from '../lib/artist-selection';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
@@ -161,29 +162,59 @@ function beforeUnload(e) {
     e.returnValue = '';
   }
 }
+const publishMode = ref(form.value.scheduled_publish_at ? 'later' : 'now'),
+  publishAt = ref(localDateTime(form.value.scheduled_publish_at));
+const unresolved = ref(form.value.attributes.unmatched_import_names || []),
+  resolutions = ref({});
 async function save(status) {
   if (busy.value) return;
   tried.value = true;
   busy.value = true;
   error.value = '';
+  let scheduledAt = null;
+  try {
+    if (status === 'published' && publishMode.value === 'later')
+      scheduledAt = publishTimestamp(publishAt.value);
+  } catch (e) {
+    error.value = e.message;
+    busy.value = false;
+    return;
+  }
+  const resolvedIds = Object.values(resolutions.value).filter(Boolean);
+  const chosen = [...new Set([...selectedEntities.value, ...resolvedIds])];
   const payload = {
     ...form.value,
     artist_ids: [
       ...new Set(
-        selectedEntities.value.flatMap(
+        chosen.flatMap(
           (id) => catalog.value.find((a) => a.id === id)?.member_ids || [id],
         ),
       ),
     ],
+    company:
+      [
+        ...new Set(
+          chosen
+            .flatMap(
+              (id) =>
+                catalog.value.find((a) => a.id === id)?.member_ids || [id],
+            )
+            .map((id) => catalog.value.find((a) => a.id === id)?.company)
+            .filter(Boolean),
+        ),
+      ].join(' / ') || form.value.company,
     status,
+    scheduled_publish_at: scheduledAt,
     time: eventTime(timeText.value),
     attributes: {
       ...form.value.attributes,
-      artist_type:
-        selectionTypes(catalog.value, selectedEntities.value)[0] || '',
-      artist_types: selectionTypes(catalog.value, selectedEntities.value),
-      artist_selections: selectedEntities.value,
-      cp_ids: selectedEntities.value
+      unmatched_import_names: unresolved.value.filter(
+        (n) => !resolutions.value[n],
+      ),
+      artist_type: selectionTypes(catalog.value, chosen)[0] || '',
+      artist_types: selectionTypes(catalog.value, chosen),
+      artist_selections: chosen,
+      cp_ids: chosen
         .filter((id) => id.startsWith('cp:'))
         .map((id) => id.slice(3)),
       time_text: timeText.value.trim(),
@@ -194,7 +225,7 @@ async function save(status) {
     await saveEventWithTasks(
       payload,
       tasks.value,
-      publishNotice.value && status === 'published'
+      publishNotice.value && status === 'published' && !scheduledAt
         ? {
             title: payload.title + '变动',
             body: noticeBody.value,
@@ -245,6 +276,18 @@ onUnmounted(() => {
       <div class="event-body">
         <fieldset :disabled="busy">
           <CatalogPicker v-model="selectedEntities" :catalog="catalog" />
+          <section v-if="unresolved.length">
+            <h3>待匹配艺人</h3>
+            <label v-for="name in unresolved" :key="name"
+              >原始名称：{{ name
+              }}<select v-model="resolutions[name]">
+                <option value="">请选择对应艺人后才能发布</option>
+                <option v-for="a in catalog" :key="a.id" :value="a.id">
+                  {{ a.en_name || a.name }}
+                </option>
+              </select></label
+            >
+          </section>
           <label class="field"
             >活动名称 <b>*</b
             ><input
@@ -525,12 +568,14 @@ onUnmounted(() => {
                     step="1"
                   /><small>不填为当天 00:00</small></label
                 ><label class="field"
-                  >结束日期<input
+                  >结束日期（开票可留空，售完即止）<input
                     v-model="task.end_date"
                     :aria-label="`事项${index + 1}结束日期`"
                     type="date"
                     :required="
-                      task.status === 'published' || !!task.end_time
+                      (task.status === 'published' &&
+                        task.task_type !== 'ticketing') ||
+                      !!task.end_time
                     " /></label
                 ><label class="field"
                   >结束时间<input
@@ -554,21 +599,36 @@ onUnmounted(() => {
             </article>
           </section>
           <p class="section-help">
-            存草稿与提交均需填写必填项。提交会发布活动；事项是否公开取决于各自状态。仅供用户查看，无完成勾选。
+            待匹配艺人可以保存草稿；完成匹配后方可发布。事项是否公开取决于各自状态。仅供用户查看，无完成勾选。
           </p>
           <p v-if="form.cancelled_at" class="error-text">
             此活动已取消，提交仍保留取消状态。
           </p>
-          <p v-if="form.scheduled_publish_at" class="section-help">
-            保留定时发布时间：{{
-              new Date(form.scheduled_publish_at).toLocaleString('zh-CN', {
-                timeZone: 'Asia/Bangkok',
-              })
-            }}（泰国时间）。
-          </p>
         </fieldset>
       </div>
       <div v-if="error" role="alert" class="form-problem">{{ error }}</div>
+      <div class="publish-options">
+        <label
+          ><input
+            type="radio"
+            v-model="publishMode"
+            value="now"
+          />即刻发布</label
+        ><label
+          ><input
+            type="radio"
+            v-model="publishMode"
+            value="later"
+          />稍后发布</label
+        ><label v-if="publishMode === 'later'"
+          >发布时间（{{
+            Intl.DateTimeFormat().resolvedOptions().timeZone
+          }}）<input
+            type="datetime-local"
+            v-model="publishAt"
+            :required="publishMode === 'later'"
+        /></label>
+      </div>
       <footer>
         <button
           type="button"
@@ -580,7 +640,9 @@ onUnmounted(() => {
         ><button type="button" class="cancel" :disabled="busy" @click="close">
           取消</button
         ><button type="submit" class="submit" :disabled="busy">
-          {{ busy ? '保存中…' : '提交' }}
+          {{
+            busy ? '保存中…' : publishMode === 'later' ? '稍后发布' : '即刻发布'
+          }}
         </button>
       </footer>
     </form>
@@ -820,5 +882,20 @@ onUnmounted(() => {
   .field {
     margin-bottom: 22px;
   }
+}
+.publish-options {
+  padding: 12px 24px;
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.publish-options label {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.publish-options input[type='radio'] {
+  width: 16px;
+  height: 16px;
 }
 </style>

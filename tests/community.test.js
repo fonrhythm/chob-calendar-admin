@@ -33,6 +33,7 @@ test('community workflow enforces ownership, edit limits, immediate flags, reply
       '012_group_save_display.sql',
       '013_artist_selection.sql',
       '014_activity_labels.sql',
+      '015_scheduling_import_drafts.sql',
     ]) {
       const sql = await readFile(
         new URL('../supabase/' + file, import.meta.url),
@@ -275,6 +276,92 @@ test('community workflow enforces ownership, edit limits, immediate flags, reply
     assert.equal(
       (await db.query('select * from chob_messages')).rows.length,
       0,
+    );
+    await as(fan);
+    const later = await call('chob_submit_event_scheduled', [
+      { ...payload, scheduled_publish_at: '2099-01-01T00:00:00Z' },
+      null,
+      null,
+    ]);
+    await as(null, 'anon');
+    assert.ok(
+      !(await call('chob_public_feed', [])).records.some((r) => r.id === later),
+    );
+    await db.exec('reset role');
+    await db.query(
+      "update events set scheduled_publish_at=now()-interval '1 minute' where id=$1",
+      [later],
+    );
+    await as(null, 'anon');
+    assert.ok(
+      (await call('chob_public_feed', [])).records.some((r) => r.id === later),
+    );
+    await as(fan);
+    await assert.rejects(
+      call('chob_submit_event_scheduled', [
+        { ...payload, scheduled_publish_at: '2000-01-01T00:00:00Z' },
+        null,
+        null,
+      ]),
+      /未来/,
+    );
+    await db.exec('reset role');
+    await db.exec(
+      "insert into artists(id,name) values('00000000-0000-4000-8000-000000000777','Resolved');insert into participation_conditions(id,code,name) values('00000000-0000-4000-8000-000000000778','test_free','Free')",
+    );
+    await as(admin);
+    const pending = {
+      id: '00000000-0000-4000-8000-000000000779',
+      title: 'Pending import',
+      date: '2026-11-02',
+      location: 'Hall',
+      location_region: 'Bangkok',
+      participation_condition: 'test_free',
+      artist_ids: [],
+      status: 'draft',
+      attributes: {
+        region: 'thailand',
+        picture_urls: [],
+        unmatched_import_names: ['Unknown'],
+      },
+    };
+    const saved = await call('chob_save_event_bundle_v2', [pending, [], null]);
+    await assert.rejects(
+      call('chob_save_event_bundle_v2', [
+        {
+          ...pending,
+          status: 'published',
+          artist_ids: ['00000000-0000-4000-8000-000000000777'],
+        },
+        [],
+        saved.updated_at,
+      ]),
+      /匹配/,
+    );
+    await call('chob_save_event_bundle_v2', [
+      {
+        ...pending,
+        status: 'published',
+        artist_ids: ['00000000-0000-4000-8000-000000000777'],
+        attributes: { ...pending.attributes, unmatched_import_names: [] },
+      },
+      [
+        {
+          id: '00000000-0000-4000-8000-000000000780',
+          title: 'Open ticket',
+          task_type: 'ticketing',
+          status: 'published',
+          start_date: '2026-10-01',
+          end_date: null,
+        },
+      ],
+      saved.updated_at,
+    ]);
+    await as(null, 'anon');
+    assert.ok(
+      (await call('chob_public_feed', [])).records.some(
+        (r) => r.id === '00000000-0000-4000-8000-000000000780',
+      ),
     );
   } finally {
     await db.close();

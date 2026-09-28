@@ -41,7 +41,7 @@ export async function saveEventWithTasks(event, tasks, notice = null) {
   const problem = validateEvent(event, tasks);
   if (problem) throw new Error(problem);
   const { data, error } = await supabase.rpc(
-    notice ? 'chob_save_event_with_notice' : 'chob_save_event_bundle',
+    notice ? 'chob_save_event_with_notice' : 'chob_save_event_bundle_v2',
     {
       ...(notice ? { notice_payload: notice } : {}),
       payload: event,
@@ -52,7 +52,7 @@ export async function saveEventWithTasks(event, tasks, notice = null) {
   if (error) {
     if (error.code === 'PGRST202')
       throw new Error(
-        '请先在 Supabase 执行安装包中的 004_event_form_import.sql，再重新保存。',
+        '请先在 Supabase 执行 015_scheduling_import_drafts.sql，再重新保存。',
       );
     throw new Error(error.message);
   }

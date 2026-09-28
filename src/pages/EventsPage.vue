@@ -404,6 +404,7 @@ onMounted(load);
       v-if="importOpen"
       :workspace="workspace"
       @close="importOpen = false"
+      @imported="load"
       @saved="saved"
     />
     <EventFormModal

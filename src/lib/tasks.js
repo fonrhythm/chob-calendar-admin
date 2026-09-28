@@ -36,9 +36,9 @@ export function taskActiveOn(task, date) {
   return (
     task.status === 'published' &&
     !!task.start_date &&
-    !!task.end_date &&
+    (!!task.end_date || task.task_type === 'ticketing') &&
     task.start_date <= date &&
-    task.end_date >= date
+    (!task.end_date || task.end_date >= date)
   );
 }
 export function compareTasks(a, b) {
@@ -93,7 +93,10 @@ export function validateTasks(tasks) {
       return prefix + '请选择分类。';
     if (!['draft', 'published', 'withdrawn'].includes(task.status))
       return prefix + '发布状态无效。';
-    if (task.status === 'published' && (!task.start_date || !task.end_date))
+    if (
+      task.status === 'published' &&
+      (!task.start_date || (!task.end_date && task.task_type !== 'ticketing'))
+    )
       return prefix + '发布前请填写开始和结束日期。';
     if (
       (task.start_time && !task.start_date) ||

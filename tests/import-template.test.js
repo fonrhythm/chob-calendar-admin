@@ -11,9 +11,8 @@ test('downloaded Excel example round-trips through production parser and indepen
     ),
     1,
   );
-  assert.throws(() => readImportRows(rows), /示例/);
-  rows[1][0] = '导入';
-  rows[1][3] = '演示CP;演示组合';
+  assert.equal(readImportRows(rows).length, 1);
+  rows[2][2] = '演示CP / 演示组合';
   const workspace = {
     events: [],
     artists: [
@@ -37,12 +36,12 @@ test('downloaded Excel example round-trips through production parser and indepen
     condition: 'free',
   });
   assert.deepEqual(r.problems, []);
-  assert.equal(r.event.date, '2026-10-15');
-  assert.equal(r.event.time, '14:00:00');
-  assert.equal(r.event.attributes.activity_category, 'interaction');
+  assert.equal(r.event.date, '2026-09-30');
+  assert.equal(r.event.time, '19:00:00');
+  assert.equal(r.event.attributes.activity_category, 'screen');
   assert.deepEqual(r.event.attributes.artist_selections, ['cp:cp1', 'g']);
   assert.equal(r.event.attributes.cp_ids[0], 'cp1');
-  rows[1][7] = '颁奖红毯';
+  rows[2][6] = '颁奖红毯';
   assert.equal(
     previewImport(readImportRows(rows), workspace, { condition: 'free' })[0]
       .event.attributes.activity_category,

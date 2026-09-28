@@ -104,7 +104,11 @@ export function readImportRows(rows) {
   const data = rows
     .slice(1)
     .map((row, index) => ({ row, index }))
-    .filter(({ row }) => row.some((v) => text(v)))
+    .filter(
+      ({ row }) =>
+        row.some((v) => text(v)) &&
+        !row.some((v) => text(v) === '以下为示例，请填写完成后删掉'),
+    )
     .filter(({ row }) => text(row[headers.indexOf('row_kind')]) !== '示例');
   if (data.length > 200) throw new Error('每次最多导入 200 行，请拆分文件。');
   if (!data.length)
@@ -143,12 +147,16 @@ export function previewImport(rows, workspace, defaults = {}) {
       warnings = [],
       artistIds = [],
       selections = [],
-      cpIds = [];
+      cpIds = [],
+      unresolved = [];
     const names = text(r.name)
       .split(/[;；|、/]/)
       .map((s) => s.trim())
       .filter(Boolean);
-    if (!names.length) problems.push('艺人名称不能为空');
+    if (!names.length) {
+      unresolved.push('未填写艺人');
+      warnings.push('未填写艺人，将保存待匹配草稿');
+    }
     for (const name of names) {
       const matches = workspace.artists.filter(
         (a) =>
@@ -160,13 +168,10 @@ export function previewImport(rows, workspace, defaults = {}) {
       const pairs = (workspace.pairs || []).filter(
         (a) => !a.deleted_at && normalize(a.cp_name) === normalize(name),
       );
-      if (matches.length + pairs.length !== 1)
-        problems.push(
-          matches.length + pairs.length
-            ? '艺人“' + name + '”存在重名，请使用唯一别名'
-            : '找不到艺人“' + name + '”，请先建立资料或检查名称',
-        );
-      else if (pairs.length) {
+      if (matches.length + pairs.length !== 1) {
+        unresolved.push(name);
+        warnings.push('待匹配艺人：' + name + '，导入后请在后台匹配');
+      } else if (pairs.length) {
         const pair = pairs[0];
         artistIds.push(pair.artist_1_id, pair.artist_2_id);
         cpIds.push(pair.id);
@@ -217,7 +222,15 @@ export function previewImport(rows, workspace, defaults = {}) {
       time: eventTime(timeText),
       location: text(r.venue),
       location_region: text(r.city),
-      company: text(r.company),
+      company:
+        [
+          ...new Set(
+            workspace.artists
+              .filter((a) => artistIds.includes(a.id))
+              .map((a) => a.company)
+              .filter(Boolean),
+          ),
+        ].join(' / ') || text(r.company),
       artist_ids: [...new Set(artistIds)],
       event_type_id: types[0]?.id || '',
       participation_condition: conditions[0]?.code || '',
@@ -226,6 +239,8 @@ export function previewImport(rows, workspace, defaults = {}) {
       status: 'draft',
       attributes: {
         activity_category: category,
+        unmatched_import_names: unresolved,
+        import_artist_names: names,
         artist_selections: [...new Set(selections)],
         cp_ids: cpIds,
         artist_types: [
@@ -272,7 +287,7 @@ export function previewImport(rows, workspace, defaults = {}) {
         description: '',
         status: 'draft',
       });
-      if (!end) warnings.push('已生成购票草稿；请补截止日期后发布事项');
+      if (!end) warnings.push('开票无截止日期，售完即止');
     } else if (
       text(r.sale_time) ||
       text(r.sale_end_date) ||
