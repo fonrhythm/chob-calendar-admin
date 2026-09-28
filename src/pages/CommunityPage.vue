@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { allRows, rpc } from '@/lib/api';
+import { duplicateNoticeGroups, recentNotices } from '@/lib/announcement-management';
 const reports = ref([]),
   events = ref([]),
   notices = ref([]),
@@ -11,6 +12,9 @@ const reports = ref([]),
   forms = ref({}),
   noticeForms = ref({}),
   editingNotice = ref(''),
+  noticeFilter = ref('published'),
+  noticeQuery = ref(''),
+  selectedNotices = ref([]),
   newNotice = ref({ title: '', body: '', source_url: '', event_id: null });
 const title = (id) => events.value.find((e) => e.id === id)?.title || '活动';
 const pending = computed(() =>
@@ -36,6 +40,16 @@ const duplicates = computed(() => {
   }
   return [...groups.values()].filter((g) => g.length > 1);
 });
+const noticeDuplicates = computed(() => duplicateNoticeGroups(notices.value));
+const managedNotices = computed(() =>
+  recentNotices(notices.value).filter((notice) => {
+    if (noticeFilter.value === 'published' && !notice.published) return false;
+    if (noticeFilter.value === 'hidden' && notice.published) return false;
+    const query = noticeQuery.value.trim().toLowerCase();
+    return !query || [notice.title, notice.body, title(notice.event_id)]
+      .join(' ').toLowerCase().includes(query);
+  }),
+);
 const fields = {
   name: '艺人',
   activity: '活动名称',
@@ -90,6 +104,30 @@ async function perform(fn) {
     error.value = e.message;
     return false;
   } finally {
+    busy.value = false;
+  }
+}
+async function setNoticeVisibility(ids, published) {
+  if (busy.value || !ids.length) return;
+  busy.value = true;
+  error.value = '';
+  message.value = '';
+  let changed = 0;
+  try {
+    for (const id of ids) {
+      const notice = notices.value.find((row) => row.id === id);
+      if (!notice || notice.published === published) continue;
+      await rpc('chob_save_announcement', {
+        payload: { ...notice, published },
+      });
+      changed++;
+    }
+    selectedNotices.value = selectedNotices.value.filter((id) => !ids.includes(id));
+    message.value = `已${published ? '恢复公开' : '从前台隐藏'} ${changed} 条公告。`;
+  } catch (cause) {
+    error.value = `${cause.message}；已处理 ${changed} 条，请核对列表后重试。`;
+  } finally {
+    try { await load(); } catch { /* load reports its own error */ }
     busy.value = false;
   }
 }
@@ -294,7 +332,30 @@ onMounted(load);
           </option></select
         ><button class="btn-primary" :disabled="busy">发布公告</button>
       </form>
-      <article v-for="n in notices" :key="n.id" class="card space-y-3">
+      <section class="card space-y-3">
+        <h2 class="font-bold">管理消息 / 公告</h2>
+        <p class="text-gray-500">选择重复公告后可批量隐藏；隐藏的内容保留在后台，随时可以恢复。</p>
+        <div class="flex flex-wrap gap-3 items-center">
+          <select v-model="noticeFilter" class="input-field" aria-label="公告显示状态" style="width:auto"><option value="published">已公开</option><option value="hidden">已隐藏</option><option value="all">全部</option></select>
+          <input v-model="noticeQuery" class="input-field" style="width:min(100%,320px)" placeholder="搜索标题、内容或关联活动" aria-label="搜索公告" />
+          <span>{{ managedNotices.length }} 条</span>
+        </div>
+        <div class="flex flex-wrap gap-3 items-center">
+          <label class="flex gap-2"><input type="checkbox" :checked="managedNotices.length > 0 && managedNotices.every((n) => selectedNotices.includes(n.id))" @change="selectedNotices = $event.target.checked ? [...new Set([...selectedNotices, ...managedNotices.map((n) => n.id)])] : selectedNotices.filter((id) => !managedNotices.some((n) => n.id === id))" />选择当前结果</label>
+          <button class="btn-secondary" :disabled="busy || !selectedNotices.length" @click="setNoticeVisibility(selectedNotices, false)">批量隐藏（{{ selectedNotices.length }}）</button>
+          <button class="btn-secondary" :disabled="busy || !selectedNotices.length" @click="setNoticeVisibility(selectedNotices, true)">批量恢复</button>
+        </div>
+      </section>
+      <section v-if="noticeDuplicates.length" class="card space-y-3">
+        <h2 class="font-bold">可能重复的公告</h2>
+        <p class="text-gray-500">标题空格不同但正文相同的公告会列在一起，请核对后保留最新的一条。</p>
+        <div v-for="group in noticeDuplicates" :key="group[0].id" class="border-t pt-3 space-y-2">
+          <p>{{ group.map((n) => n.title).join(' / ') }}（{{ group.length }} 条）</p>
+          <button class="btn-secondary" :disabled="busy" @click="setNoticeVisibility(group.slice(1).map((n) => n.id), false)">保留最新，隐藏其他</button>
+        </div>
+      </section>
+      <article v-for="n in managedNotices" :key="n.id" class="card space-y-3">
+        <label class="flex gap-2 items-center"><input v-model="selectedNotices" type="checkbox" :value="n.id" />选择此公告</label>
         <template v-if="editingNotice === n.id">
           <h3 class="font-bold">编辑消息 / 公告</h3>
           <label class="block">标题<input v-model="noticeForms[n.id].title" required maxlength="200" class="input-field" /></label>
@@ -309,6 +370,7 @@ onMounted(load);
           <p class="whitespace-pre-wrap">{{ n.body }}</p>
           <p class="text-sm text-gray-500">{{ n.published ? '前台显示' : '未公开' }} · {{ title(n.event_id) }}</p>
           <button class="btn-secondary" @click="editingNotice = n.id">编辑</button>
+          <button class="btn-secondary ml-2" :disabled="busy" @click="setNoticeVisibility([n.id], !n.published)">{{ n.published ? '从前台隐藏' : '恢复公开' }}</button>
           <button
             v-if="n.event_id && /延期/.test(n.title + n.body) && events.find((e) => e.id === n.event_id)?.attributes?.event_status !== 'postponed'"
             class="btn-secondary ml-2"
@@ -316,7 +378,7 @@ onMounted(load);
             @click="perform(() => rpc('chob_set_postponement', { target: n.event_id, new_date: null, notify_users: false, source_url: n.source_url }))"
           >标记关联活动延期（日期待定）</button>
         </template>
-      </article></template
+      </article><p v-if="!managedNotices.length">当前筛选下没有公告。</p></template
     >
   </section>
 </template>
