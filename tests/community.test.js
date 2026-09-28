@@ -34,6 +34,7 @@ test('community workflow enforces ownership, edit limits, immediate flags, reply
       '013_artist_selection.sql',
       '014_activity_labels.sql',
       '015_scheduling_import_drafts.sql',
+      '016_event_updates_and_details.sql',
     ]) {
       const sql = await readFile(
         new URL('../supabase/' + file, import.meta.url),
@@ -187,7 +188,28 @@ test('community workflow enforces ownership, edit limits, immediate flags, reply
       /已有公开活动/,
     );
     await as(admin);
-    const next = await call('chob_postpone_event', [
+    const pendingDateId = await call('chob_set_postponement', [
+      id, null, true, 'https://example.com/source',
+    ]);
+    assert.equal(pendingDateId, id);
+    let editableNotice = (await db.query("select * from chob_announcements where event_id=$1 and kind='postponement'", [id])).rows[0];
+    assert.match(editableNotice.body, /另行通知/);
+    await call('chob_save_announcement', [{
+      id: editableNotice.id, event_id: id, title: '延期消息更新',
+      body: '新日期还未确定', source_url: '', published: true,
+    }]);
+    assert.equal((await db.query('select count(*)::int n from chob_announcements where id=$1', [editableNotice.id])).rows[0].n, 1);
+    await call('chob_set_postponement', [id, null, true, 'https://example.com/updated']);
+    editableNotice = (await db.query("select * from chob_announcements where event_id=$1 and kind='postponement'", [id])).rows[0];
+    assert.equal(editableNotice.source_url, 'https://example.com/updated');
+    assert.equal((await db.query("select count(*)::int n from chob_announcements where event_id=$1 and kind='postponement'", [id])).rows[0].n, 1);
+    await as(null, 'anon');
+    feed = await call('chob_public_feed', []);
+    assert.equal(feed.records.find((r) => r.id === id).event_status, 'postponed');
+    assert.equal(feed.records.find((r) => r.id === id).postponed_to_date, '');
+    assert.ok(Object.hasOwn(feed.records.find((r) => r.id === id), 'participation_condition'));
+    await as(admin);
+    const next = await call('chob_set_postponement', [
       id,
       '2026-12-01',
       false,

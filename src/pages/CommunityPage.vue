@@ -9,6 +9,8 @@ const reports = ref([]),
   busy = ref(false),
   tab = ref('corrections'),
   forms = ref({}),
+  noticeForms = ref({}),
+  editingNotice = ref(''),
   newNotice = ref({ title: '', body: '', source_url: '', event_id: null });
 const title = (id) => events.value.find((e) => e.id === id)?.title || '活动';
 const pending = computed(() =>
@@ -53,6 +55,15 @@ async function load() {
       allRows('events'),
       allRows('chob_announcements'),
     ]);
+    for (const notice of notices.value)
+      noticeForms.value[notice.id] = {
+        id: notice.id,
+        title: notice.title,
+        body: notice.body,
+        source_url: notice.source_url,
+        event_id: notice.event_id,
+        published: notice.published,
+      };
     for (const r of reports.value)
       forms.value[r.id] ||= {
         decision: 'correct',
@@ -74,8 +85,10 @@ async function perform(fn) {
     await fn();
     message.value = '处理已保存。';
     await load();
+    return true;
   } catch (e) {
     error.value = e.message;
+    return false;
   } finally {
     busy.value = false;
   }
@@ -252,7 +265,7 @@ onMounted(load);
         class="card space-y-3"
         @submit.prevent="
           perform(() =>
-            rpc('chob_publish_announcement', { payload: newNotice }),
+            rpc('chob_save_announcement', { payload: newNotice }),
           )
         "
       >
@@ -281,9 +294,22 @@ onMounted(load);
           </option></select
         ><button class="btn-primary" :disabled="busy">发布公告</button>
       </form>
-      <article v-for="n in notices" :key="n.id" class="card">
-        <h3>{{ n.title }}</h3>
-        <p>{{ n.body }}</p>
+      <article v-for="n in notices" :key="n.id" class="card space-y-3">
+        <template v-if="editingNotice === n.id">
+          <h3 class="font-bold">编辑消息 / 公告</h3>
+          <label class="block">标题<input v-model="noticeForms[n.id].title" required maxlength="200" class="input-field" /></label>
+          <label class="block">内容<textarea v-model="noticeForms[n.id].body" class="input-field" rows="4"></textarea></label>
+          <label class="block">消息来源<input v-model="noticeForms[n.id].source_url" type="url" class="input-field" /></label>
+          <label class="block">关联活动<select v-model="noticeForms[n.id].event_id" class="input-field"><option :value="null">不关联活动</option><option v-for="e in events" :key="e.id" :value="e.id">{{ e.title }} · {{ e.date }}</option></select></label>
+          <label class="flex gap-2"><input v-model="noticeForms[n.id].published" type="checkbox" />前台显示</label>
+          <div class="flex gap-3"><button class="btn-primary" :disabled="busy" @click="perform(() => rpc('chob_save_announcement', { payload: noticeForms[n.id] })).then((ok) => { if (ok) editingNotice = '' })">保存修改</button><button class="btn-secondary" @click="editingNotice = ''">取消</button></div>
+        </template>
+        <template v-else>
+          <h3 class="font-bold">{{ n.title }}</h3>
+          <p class="whitespace-pre-wrap">{{ n.body }}</p>
+          <p class="text-sm text-gray-500">{{ n.published ? '前台显示' : '未公开' }} · {{ title(n.event_id) }}</p>
+          <button class="btn-secondary" @click="editingNotice = n.id">编辑</button>
+        </template>
       </article></template
     >
   </section>

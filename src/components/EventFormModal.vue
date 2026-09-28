@@ -78,7 +78,8 @@ const initial = JSON.stringify([
   timeText.value,
   selectedEntities.value,
 ]);
-const newDate = ref(''),
+const newDate = ref(form.value.attributes.postponed_to_date || ''),
+  datePending = ref(!form.value.attributes.postponed_to_date),
   notifyUsers = ref(false),
   sourceUrl = ref(''),
   publishNotice = ref(false),
@@ -125,13 +126,13 @@ const companies = computed(() => [
 ]);
 async function postpone() {
   if (!props.event || busy.value) return;
-  if (!window.confirm('保留原日期的延期记录，并创建关联的新日期活动？')) return;
+  if (!window.confirm(datePending.value ? '将原活动标记为延期，日期另行通知？' : '保留原日期的延期记录，并创建或更新关联的新日期活动？')) return;
   busy.value = true;
   error.value = '';
   try {
-    await rpc('chob_postpone_event', {
+    await rpc('chob_set_postponement', {
       target: props.event.id,
-      new_date: newDate.value,
+      new_date: datePending.value ? null : newDate.value,
       notify_users: notifyUsers.value,
       source_url: sourceUrl.value,
     });
@@ -312,6 +313,7 @@ onUnmounted(() => {
               <option :value="undefined">正常</option>
               <option value="active">正常</option>
               <option value="cancelled">已取消</option>
+              <option value="postponed">已延期</option>
             </select></label
           ><label class="field"
             >点名
@@ -326,15 +328,16 @@ onUnmounted(() => {
               v-model="form.attributes.roll_call"
           /></label>
           <section v-if="event" class="task-panel">
-            <h3>延期至新日期</h3>
+            <h3>活动延期</h3>
             <p class="section-help">
               将关联原记录与新记录，已收藏和已添加的个人事项会跟随新日期。请先保存其他字段修改，再操作延期。
             </p>
             <input
               v-model="newDate"
               type="date"
+              :disabled="datePending"
               aria-label="延期后的新日期"
-            /><label class="block mt-3"
+            /><label class="block mt-3"><input v-model="datePending" type="checkbox" />日期另行通知</label><label class="block mt-3"
               ><input
                 v-model="notifyUsers"
                 type="checkbox"
@@ -347,10 +350,10 @@ onUnmounted(() => {
             /><button
               type="button"
               class="add-task mt-3"
-              :disabled="busy || !newDate || dirty"
+              :disabled="busy || (!datePending && !newDate) || dirty"
               @click="postpone"
             >
-              创建关联延期记录
+              保存延期状态
             </button>
           </section>
           <label class="field"
