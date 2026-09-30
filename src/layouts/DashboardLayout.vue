@@ -10,11 +10,13 @@ const roles = {
   admin: '管理员',
   official_account: '官方账号',
   company_staff: '经纪公司员工',
-  collaborator_fan: '合作粉丝',
+  collaborator_fan: '粉丝协作者',
 };
 const items = computed(() => [
   { path: '/', label: '概览' },
-  { path: '/artists', label: '艺人 / CP资料库' },
+  ...(auth.userProfile?.role === 'admin'
+    ? [{ path: '/artists', label: '艺人 / CP资料库' }]
+    : []),
   ...(['admin', 'collaborator_fan'].includes(auth.userProfile?.role)
     ? [
         { path: '/events', label: '活动管理' },
