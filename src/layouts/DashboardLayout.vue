@@ -21,6 +21,7 @@ const items = computed(() => [
         { path: '/tasks', label: '事项预览' },
         { path: '/community', label: '消息与核实' },
         { path: '/logs', label: '操作记录' },
+        { path: '/users', label: '用户审核' },
       ]
     : []),
   { path: '/profile', label: '账号资料' },

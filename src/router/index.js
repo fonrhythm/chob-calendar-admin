@@ -11,7 +11,7 @@ const Dashboard = () => import('@/pages/FoundationDashboard.vue');
 const ArtistsPage = () => import('@/pages/ArtistsPage.vue');
 const EventsPage = () => import('@/pages/EventsPage.vue');
 const TasksPage = EventsPage;
-const UsersPage = () => import('@/pages/StagePending.vue');
+const UsersPage = () => import('@/pages/UsersPage.vue');
 const ProfilePage = () => import('@/pages/AccountProfile.vue');
 const NotFound = () => import('@/pages/NotFound.vue');
 

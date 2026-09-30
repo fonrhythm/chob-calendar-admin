@@ -24,7 +24,7 @@
           v-if="registrationSuccess"
           class="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm"
         >
-          注册成功！请检查邮箱验证你的账户。
+          注册成功！请先完成邮箱验证，再等待管理员审核。审核通过后才能进入后台。
         </div>
 
         <!-- 注册表单 -->
@@ -131,7 +131,7 @@
             <span v-if="errors.confirmPassword" class="form-error">{{ errors.confirmPassword }}</span>
           </div>
 
-          <p class="text-sm text-gray-500">注册后请完成邮箱验证。新账号默认为合作粉丝，管理员权限需由项目负责人设置。</p>
+          <p class="text-sm text-gray-500">注册后需完成邮箱验证，并等待管理员审核。审核前不能进入管理后台。</p>
 
           <!-- 注册按钮 -->
           <button
