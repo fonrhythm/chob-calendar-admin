@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue';
 import { artistTypes, selectionTypes } from '../lib/artist-selection';
+import { searchArtist } from '../lib/artists';
 const props = defineProps({
     catalog: { type: Array, default: () => [] },
     modelValue: { type: Array, default: () => [] },
@@ -24,11 +25,8 @@ const candidates = computed(() =>
         !props.modelValue.includes(a.id) &&
         (!filters.value.length ||
           selectionTypes([a], [a.id]).some((t) => filters.value.includes(t))) &&
-        [a.name, a.en_name, a.company, ...(a.aliases || [])].some((v) =>
-          String(v || '')
-            .toLowerCase()
-            .includes(query.value.toLowerCase()),
-        ),
+        (searchArtist(a, query.value) ||
+          String(a.company || '').toLowerCase().includes(query.value.toLowerCase())),
     )
     .slice(0, 50),
 );

@@ -1,6 +1,7 @@
 <script setup>
 import { publishTimestamp, localDateTime } from '../lib/publishing';
 import CatalogPicker from './CatalogPicker.vue';
+import ArtistMatchPicker from './ArtistMatchPicker.vue';
 import { selectionTypes } from '../lib/artist-selection';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { ACTIVITY_TYPES, activityCategory } from '@/lib/activity-types';
@@ -279,15 +280,13 @@ onUnmounted(() => {
           <CatalogPicker v-model="selectedEntities" :catalog="catalog" />
           <section v-if="unresolved.length">
             <h3>待匹配艺人</h3>
-            <label v-for="name in unresolved" :key="name"
-              >原始名称：{{ name
-              }}<select v-model="resolutions[name]">
-                <option value="">请选择对应艺人后才能发布</option>
-                <option v-for="a in catalog" :key="a.id" :value="a.id">
-                  {{ a.en_name || a.name }}
-                </option>
-              </select></label
-            >
+            <ArtistMatchPicker
+              v-for="name in unresolved"
+              :key="name"
+              v-model="resolutions[name]"
+              :catalog="catalog"
+              :original-name="name"
+            />
           </section>
           <label class="field"
             >活动名称 <b>*</b

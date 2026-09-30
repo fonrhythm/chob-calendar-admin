@@ -301,11 +301,14 @@ async function batchDelete(entity) {
 
     let removed = 0;
     for (const id of [...selected]) {
-      await rpc(entity === 'groups' ? 'chob_set_group_deleted' : 'chob_set_deleted', {
-        ...(entity === 'groups' ? {} : { entity }),
-        record_id: id,
-        deleted: true,
-      });
+      await rpc(
+        entity === 'groups' ? 'chob_set_group_deleted' : 'chob_set_deleted',
+        {
+          ...(entity === 'groups' ? {} : { entity }),
+          record_id: id,
+          deleted: true,
+        },
+      );
       selected.delete(id);
       removed++;
     }
@@ -372,7 +375,7 @@ function importRows() {
 }
 
 function downloadTemplate() {
-  const blob = new Blob(['\uFEFF艺人名称,显示名称,公司,类别,别名\r\n'], {
+  const blob = new Blob(['\uFEFF艺人名称,泰语名,显示名称,公司,类别,别名\r\n'], {
     type: 'text/csv;charset=utf-8',
   });
   const url = URL.createObjectURL(blob),
@@ -399,7 +402,10 @@ onMounted(load);
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h1 class="text-2xl font-bold">艺人资料库</h1>
-        <p class="text-gray-500 mt-1">CP 配对与组合成员关系独立：同一艺人可以同时参与两者，删除配对或组合不会删除个人艺人。</p>
+        <p class="text-gray-500 mt-1">
+          CP
+          配对与组合成员关系独立：同一艺人可以同时参与两者，删除配对或组合不会删除个人艺人。
+        </p>
       </div>
       <div v-if="admin && loaded" class="flex flex-wrap gap-2">
         <button class="btn-secondary px-4 py-2" @click="downloadTemplate">
@@ -846,7 +852,7 @@ onMounted(load);
             class="input-field mt-1"
         /></label>
         <label class="block"
-          >全名（同公司同名时必填）<input
+          >泰语名（同公司同名时必填）<input
             v-model="form.full_name"
             maxlength="150"
             class="input-field mt-1"
@@ -955,7 +961,9 @@ onMounted(load);
           </select></label
         >
         <label class="block"
-          >显示名称（选填）<input v-model="form.en_name" class="input-field mt-1"
+          >显示名称（选填）<input
+            v-model="form.en_name"
+            class="input-field mt-1"
         /></label>
         <label class="block"
           >公司<input v-model="form.company" class="input-field mt-1"
@@ -999,6 +1007,7 @@ onMounted(load);
           <label
             v-for="(label, key) in {
               name: '艺人名称',
+              full_name: '泰语名',
               en_name: '显示名称',
               company: '公司',
               categories: '类别（分号分隔）',

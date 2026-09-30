@@ -1,4 +1,5 @@
-export const displayArtistName = (artist) => String(artist?.en_name || '').trim() || artist?.name || '';
+export const displayArtistName = (artist) =>
+  String(artist?.en_name || '').trim() || artist?.name || '';
 import { pinyin } from 'pinyin-pro';
 export const normalize = (value) =>
   String(value ?? '')
@@ -31,7 +32,7 @@ export function artistPayload(row) {
 export function searchArtist(artist, query) {
   const needle = normalize(query);
   if (!needle) return true;
-  const words = [artist.name, artist.en_name, ...(artist.aliases || [])].filter(
+  const words = [artist.name, artist.full_name, artist.base_name, artist.en_name, ...(artist.aliases || [])].filter(
     Boolean,
   );
   return words.some(
@@ -95,6 +96,7 @@ const columns = {
   公司: 'company',
   full_name: 'full_name',
   全名: 'full_name',
+  泰语名: 'full_name',
   categories: 'categories',
   type: 'categories',
   类别: 'categories',
