@@ -4,6 +4,7 @@ import { configurationError, recoveryPending } from '@/config/supabase';
 import CommunityPage from '@/pages/CommunityPage.vue';
 import AuditPage from '@/pages/AuditPage.vue';
 import UsersPage from '@/pages/UsersPage.vue';
+import AccountProfile from '@/pages/AccountProfile.vue';
 
 // 页面组件
 const LoginPage = () => import('@/pages/LoginPage.vue');
@@ -14,7 +15,6 @@ const Dashboard = () => import('@/pages/FoundationDashboard.vue');
 const ArtistsPage = () => import('@/pages/ArtistsPage.vue');
 const EventsPage = () => import('@/pages/EventsPage.vue');
 const TasksPage = EventsPage;
-const ProfilePage = () => import('@/pages/AccountProfile.vue');
 const NotFound = () => import('@/pages/NotFound.vue');
 
 const routes = [
@@ -102,7 +102,7 @@ const routes = [
       {
         path: 'profile',
         name: 'Profile',
-        component: ProfilePage,
+        component: AccountProfile,
         meta: { title: '个人资料' },
       },
     ],
