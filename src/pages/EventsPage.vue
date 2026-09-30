@@ -325,7 +325,7 @@ onMounted(load);
                   ><small
                     v-if="event.attributes?.recurring_daily"
                     class="block mt-1"
-                    >每天重复</small
+                    >连续多日</small
                   >
                 </td>
                 <td class="p-4">
