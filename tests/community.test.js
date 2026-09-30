@@ -41,6 +41,7 @@ test('community workflow enforces ownership, edit limits, immediate flags, reply
       '019_editor_permissions.sql',
       '020_fashion_week.sql',
       '021_announcement_deletion.sql',
+      '022_artist_participation_corrections.sql',
     ]) {
       const sql = await readFile(
         new URL('../supabase/' + file, import.meta.url),
@@ -406,6 +407,19 @@ test('community workflow enforces ownership, edit limits, immediate flags, reply
     await db.query('select public.chob_review_backend_user($1,$2)', [fan, 'approved']);
     await as(fan);
     const editorEvent = { ...imported, id: '00000000-0000-4000-8000-000000000783', date: '2026-11-04', title: 'Editor event' };
+    const userPayload = { activity: 'Fan event', date: '2026-11-05', region: 'thailand', city: 'Bangkok', artist_ids: ['00000000-0000-4000-8000-000000000777'], images: [], participation_condition: 'top_spender_lucky_fans' };
+    const userTask = [{ title: 'Lucky Fans application', task_type: 'shopping', start_date: '2026-11-01', end_date: '2026-11-04', description: 'Follow the published steps.' }];
+    const userEventId = (await db.query('select public.chob_submit_event_with_tasks($1::jsonb,$2::jsonb,null,null) id', [JSON.stringify(userPayload), JSON.stringify(userTask)])).rows[0].id;
+    const userEvent = (await db.query('select participation_condition,description,attributes from events where id=$1', [userEventId])).rows[0];
+    assert.equal(userEvent.participation_condition, 'top_spender_lucky_fans');
+    assert.equal(userEvent.description, 'Follow the published steps.');
+    assert.equal((await db.query('select count(*)::int n from tasks where event_id=$1', [userEventId])).rows[0].n, 1);
+    assert.ok(userEvent.attributes.user_task_id);
+    const statusReport = await call('chob_report_correction', [userEventId, ['postponed'], 'Correct content: delayed; source: official notice']);
+    await as(admin);
+    await call('chob_resolve_correction', [statusReport, 'changed', '延期已确认', { postponed: '另行通知' }, false, '']);
+    assert.equal((await db.query('select attributes->>\'event_status\' status from events where id=$1', [userEventId])).rows[0].status, 'postponed');
+    await as(fan);
     await call('chob_save_event_bundle_v2', [editorEvent, [], null]);
     assert.equal((await db.query('select status from events where id=$1', [editorEvent.id])).rows[0].status, 'draft');
     await assert.rejects(db.query('select public.chob_review_backend_user($1,$2)', [other, 'approved']), /仅管理员/);

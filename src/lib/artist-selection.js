@@ -31,6 +31,12 @@ export const selectionTypes = (catalog, ids) => {
     ),
   );
 };
+export const selectionCompanies = (catalog, ids) => {
+  const selected = catalog.filter((a) => ids.includes(a.id));
+  const members = new Set(selected.flatMap((a) => a.member_ids || a.group_member_ids || []));
+  return [...new Set([...selected, ...catalog.filter((a) => members.has(a.id))]
+    .map((a) => String(a.company || '').trim()).filter(Boolean))].join(' / ');
+};
 export const selectionCount = (item) =>
   Array.isArray(item.artist_selections) && item.artist_selections.length
     ? new Set(item.artist_selections).size

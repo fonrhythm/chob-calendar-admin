@@ -2,7 +2,7 @@
 import { publishTimestamp, localDateTime } from '../lib/publishing';
 import CatalogPicker from './CatalogPicker.vue';
 import ArtistMatchPicker from './ArtistMatchPicker.vue';
-import { selectionTypes } from '../lib/artist-selection';
+import { selectionTypes, selectionCompanies } from '../lib/artist-selection';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { ACTIVITY_TYPES, activityCategory } from '@/lib/activity-types';
 import { rpc } from '@/lib/api';
@@ -122,9 +122,6 @@ const regions = computed(() => [
     ),
   ),
 ]);
-const companies = computed(() => [
-  ...new Set((props.artists || []).map((a) => a.company).filter(Boolean)),
-]);
 async function postpone() {
   if (!props.event || busy.value) return;
   if (!window.confirm(datePending.value ? '将原活动标记为延期，日期另行通知？' : '保留原日期的延期记录，并创建或更新关联的新日期活动？')) return;
@@ -193,18 +190,7 @@ async function save(status) {
         ),
       ),
     ],
-    company:
-      [
-        ...new Set(
-          chosen
-            .flatMap(
-              (id) =>
-                catalog.value.find((a) => a.id === id)?.member_ids || [id],
-            )
-            .map((id) => catalog.value.find((a) => a.id === id)?.company)
-            .filter(Boolean),
-        ),
-      ].join(' / ') || form.value.company,
+    company: selectionCompanies(catalog.value, chosen),
     status,
     scheduled_publish_at: scheduledAt,
     time: eventTime(timeText.value),
@@ -399,20 +385,6 @@ onUnmounted(() => {
               maxlength="200"
               placeholder="填写场地；线上活动填写直播平台"
           /></label>
-          <label class="field"
-            >公司<input
-              v-model="form.company"
-              aria-label="公司"
-              list="event-company-options"
-              maxlength="200"
-            /><datalist id="event-company-options">
-              <option
-                v-for="company in companies"
-                :key="company"
-                :value="company"
-              /></datalist
-            ><small>可输入公司名；没有合适选项时，可在备注补充。</small></label
-          >
           <label class="field"
             >参与方式 <b>*</b
             ><select

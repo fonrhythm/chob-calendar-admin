@@ -1,30 +1,19 @@
 <script setup>
 import { computed, ref } from 'vue';
-import { artistTypes, selectionTypes } from '../lib/artist-selection';
 import { searchArtist } from '../lib/artists';
 const props = defineProps({
     catalog: { type: Array, default: () => [] },
     modelValue: { type: Array, default: () => [] },
   }),
   emit = defineEmits(['update:modelValue']);
-const filters = ref([]),
-  query = ref(''),
+const query = ref(''),
   open = ref(false);
-const types = computed(() =>
-  artistTypes(
-    props.catalog.flatMap((a) =>
-      [...(a.categories || []), a.group_kind].filter(Boolean),
-    ),
-  ),
-);
 const candidates = computed(() =>
   props.catalog
     .filter(
       (a) =>
         !a.deleted_at &&
         !props.modelValue.includes(a.id) &&
-        (!filters.value.length ||
-          selectionTypes([a], [a.id]).some((t) => filters.value.includes(t))) &&
         (searchArtist(a, query.value) ||
           String(a.company || '').toLowerCase().includes(query.value.toLowerCase())),
     )
@@ -36,10 +25,6 @@ function closeLater() {
     open.value = false;
   }, 180);
 }
-function addFilter(e) {
-  if (e.target.value) filters.value.push(e.target.value);
-  e.target.value = '';
-}
 function choose(id) {
   emit('update:modelValue', [...new Set([...props.modelValue, id])]);
   query.value = '';
@@ -48,29 +33,6 @@ function choose(id) {
 </script>
 <template>
   <section class="catalog-picker">
-    <label class="catalog-kind"
-      >艺人类别 <small>可多选</small
-      ><select aria-label="艺人类别" @change="addFilter($event)">
-        <option value="">请选择</option>
-        <option
-          v-for="type in types.filter((t) => !filters.includes(t))"
-          :key="type"
-          :value="type"
-        >
-          {{ type }}
-        </option>
-      </select></label
-    >
-    <div class="catalog-selected">
-      <button
-        v-for="type in filters"
-        :key="type"
-        type="button"
-        @click="filters = filters.filter((t) => t !== type)"
-      >
-        {{ type }} ×
-      </button>
-    </div>
     <label class="catalog-search"
       >艺人名称 <small>可多选</small
       ><input
@@ -109,11 +71,6 @@ function choose(id) {
       </button>
       <p v-if="!candidates.length">没有匹配的艺人</p>
     </div>
-    <p class="catalog-types">
-      已选艺人属性：{{
-        selectionTypes(catalog, modelValue).join(' · ') || '尚未选择'
-      }}
-    </p>
   </section>
 </template>
 <style scoped>

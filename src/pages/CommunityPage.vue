@@ -63,6 +63,8 @@ const fields = {
   note: '备注',
   images: '图片链接（每行一条）',
   link: '来源链接',
+  postponed: '活动延期',
+  cancelled: '活动取消',
 };
 async function load() {
   try {
