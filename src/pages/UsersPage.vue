@@ -75,16 +75,16 @@ onMounted(load);
       <article v-for="account in visible" :key="account.id" class="bg-white rounded-xl border p-4 flex flex-wrap justify-between gap-3">
         <div>
           <h2 class="font-semibold break-all">{{ account.email }}</h2>
-          <p class="text-sm text-gray-500">{{ account.nickname || '未填写昵称' }} · {{ statusLabels[account.backend_review_status] || '待审核' }} · {{ account.email_verified ? '邮箱已验证' : '邮箱未验证' }}</p>
+          <p class="text-sm text-gray-500">{{ account.nickname || '未填写昵称' }} · {{ statusLabels[account.backend_review_status] || '待审核' }} · {{ account.role === 'collaborator_fan' ? '粉丝协作者' : account.role }} · {{ account.email_verified ? '邮箱已验证' : '邮箱未验证' }}</p>
         </div>
         <div class="flex flex-wrap gap-2 items-center">
-          <button v-if="!account.backend_approved" class="btn-primary" :disabled="!!busyId" @click="review(account, 'approved')">批准进入后台</button>
+          <button v-if="!account.backend_approved" class="btn-primary" :disabled="!!busyId" @click="review(account, 'approved')">批准协作者权限</button>
           <button v-if="account.backend_review_status === 'pending'" class="btn-secondary" :disabled="!!busyId" @click="review(account, 'rejected')">拒绝</button>
           <button v-if="account.backend_approved" class="btn-secondary text-red-700" :disabled="!!busyId" @click="review(account, 'revoked')">撤销权限</button>
         </div>
       </article>
       <p v-if="!visible.length" class="text-gray-500">暂无普通注册账号。</p>
     </div>
-    <p class="text-sm text-gray-500">审核只决定能否进入后台。活动编辑仍由现有管理员权限控制。</p>
+    <p class="text-sm text-gray-500">活动编辑可管理活动和参与事项；用户审核、消息核实、艺人资料修改及操作记录仍仅管理员可用。</p>
   </section>
 </template>

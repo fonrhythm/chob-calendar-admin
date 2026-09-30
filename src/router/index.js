@@ -77,13 +77,13 @@ const routes = [
         path: 'events',
         name: 'Events',
         component: EventsPage,
-        meta: { title: '活动管理', adminOnly: true },
+        meta: { title: '活动管理', editorAllowed: true },
       },
       {
         path: 'tasks',
         name: 'Tasks',
         component: TasksPage,
-        meta: { title: '事项管理', adminOnly: true },
+        meta: { title: '事项管理', editorAllowed: true },
       },
       {
         path: 'users',
@@ -121,6 +121,7 @@ router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore();
   const requiresAuth = to.matched.some((record) => record.meta.requiresAuth);
   const adminOnly = to.matched.some((record) => record.meta.adminOnly);
+  const editorAllowed = to.matched.some((record) => record.meta.editorAllowed);
 
   // 检查认证状态
   if (!authStore.user) {
@@ -154,6 +155,10 @@ router.beforeEach(async (to, from, next) => {
 
   // 检查管理员权限
   if (adminOnly && authStore.userProfile?.role !== 'admin') {
+    next({ name: 'Dashboard' });
+    return;
+  }
+  if (editorAllowed && !['admin', 'collaborator_fan'].includes(authStore.userProfile?.role)) {
     next({ name: 'Dashboard' });
     return;
   }

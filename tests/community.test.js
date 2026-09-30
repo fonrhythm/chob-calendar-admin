@@ -18,12 +18,13 @@ test('community workflow enforces ownership, edit limits, immediate flags, reply
       .replaceAll('${fan}', fan);
     await db.exec(setup);
     await db.exec(`create schema chob_private; create table public.cp_pairs(id uuid primary key,cp_name text,artist_1_id uuid,artist_2_id uuid,deleted_at timestamptz);
+   alter table public.users add column email text, add column updated_at timestamptz;
    alter table artists add column name text, add column en_name text, add column group_member_ids uuid[] default '{}', add column company text, add column categories text[],add column group_kind text,add column deleted_at timestamptz;
    create function chob_private.active_member() returns boolean language sql security definer set search_path='' as $$select exists(select 1 from public.users where id=auth.uid() and is_active and email_verified)$$;
    create function chob_private.is_admin() returns boolean language sql security definer set search_path='' as $$select exists(select 1 from public.users where id=auth.uid() and role='admin' and is_active and email_verified)$$;
    create function chob_private.require_admin() returns void language plpgsql security definer set search_path='' as $$begin if not chob_private.is_admin() then raise exception '仅管理员';end if;end$$;
    grant usage on schema chob_private to authenticated;
-   insert into users values('${other}','collaborator_fan',true,true);
+   insert into users(id,role,is_active,email_verified,email) values('${other}','collaborator_fan',true,true,'other@example.invalid');
   `);
     for (const file of [
       '004_event_form_import.sql',
@@ -36,6 +37,8 @@ test('community workflow enforces ownership, edit limits, immediate flags, reply
       '015_scheduling_import_drafts.sql',
       '016_event_updates_and_details.sql',
       '017_event_bulk_management.sql',
+      '018_backend_access_approval.sql',
+      '019_editor_permissions.sql',
     ]) {
       const sql = await readFile(
         new URL('../supabase/' + file, import.meta.url),
@@ -398,6 +401,17 @@ test('community workflow enforces ownership, edit limits, immediate flags, reply
     const removed = (await db.query('select status,attributes from events where id=$1', [imported.id])).rows[0];
     assert.equal(removed.status, 'withdrawn');
     assert.ok(removed.attributes.admin_deleted_at);
+    await db.query('select public.chob_review_backend_user($1,$2)', [fan, 'approved']);
+    await as(fan);
+    const editorEvent = { ...imported, id: '00000000-0000-4000-8000-000000000783', date: '2026-11-04', title: 'Editor event' };
+    await call('chob_save_event_bundle_v2', [editorEvent, [], null]);
+    assert.equal((await db.query('select status from events where id=$1', [editorEvent.id])).rows[0].status, 'draft');
+    await assert.rejects(db.query('select public.chob_review_backend_user($1,$2)', [other, 'approved']), /仅管理员/);
+    await assert.rejects(call('chob_save_announcement', [{ title: 'Denied announcement' }]), /仅管理员/);
+    await as(admin);
+    await db.query('select public.chob_review_backend_user($1,$2)', [fan, 'revoked']);
+    await as(fan);
+    await assert.rejects(call('chob_save_event_bundle_v2', [{ ...editorEvent, id: '00000000-0000-4000-8000-000000000784' }, [], null]), /管理员|编辑/);
     await as(null, 'anon');
     assert.ok(
       (await call('chob_public_feed', [])).records.some(

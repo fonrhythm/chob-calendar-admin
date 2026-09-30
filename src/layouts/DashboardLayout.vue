@@ -15,10 +15,14 @@ const roles = {
 const items = computed(() => [
   { path: '/', label: '概览' },
   { path: '/artists', label: '艺人 / CP资料库' },
-  ...(auth.userProfile?.role === 'admin'
+  ...(['admin', 'collaborator_fan'].includes(auth.userProfile?.role)
     ? [
         { path: '/events', label: '活动管理' },
         { path: '/tasks', label: '事项预览' },
+      ]
+    : []),
+  ...(auth.userProfile?.role === 'admin'
+    ? [
         { path: '/community', label: '消息与核实' },
         { path: '/logs', label: '操作记录' },
         { path: '/users', label: '用户审核' },
