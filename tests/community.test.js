@@ -39,6 +39,7 @@ test('community workflow enforces ownership, edit limits, immediate flags, reply
       '017_event_bulk_management.sql',
       '018_backend_access_approval.sql',
       '019_editor_permissions.sql',
+      '020_fashion_week.sql',
     ]) {
       const sql = await readFile(
         new URL('../supabase/' + file, import.meta.url),

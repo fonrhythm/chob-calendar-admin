@@ -54,6 +54,6 @@ test('legacy brand and interaction merge without conflating awards', () => {
   assert.equal(activityCategory('颁奖红毯'), 'awards');
   assert.deepEqual(
     ACTIVITY_TYPES.map((x) => x.name),
-    ['演出舞台', '影视宣传', '见面会/签售', '发布会/记者会', '站台活动', '颁奖红毯', '线上直播', '其他'],
+    ['演出舞台', '影视宣传', '见面会/签售', '发布会/记者会', '时装周', '站台活动', '颁奖红毯', '线上直播', '其他'],
   );
 });

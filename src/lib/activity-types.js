@@ -3,6 +3,7 @@ export const ACTIVITY_TYPES = [
   { id: 'screen', name: '影视宣传' },
   { id: 'meet', name: '见面会/签售' },
   { id: 'press', name: '发布会/记者会' },
+  { id: 'fashion', name: '时装周' },
   { id: 'interaction', name: '站台活动' },
   { id: 'awards', name: '颁奖红毯' },
   { id: 'broadcast', name: '线上直播' },
@@ -14,6 +15,7 @@ export function activityCategory(value) {
     .toLowerCase();
   if (v === 'brand') return 'interaction';
   if (ACTIVITY_TYPES.some((t) => t.id === v)) return v;
+  if (/时装周|fashion\s*week/.test(v)) return 'fashion';
   if (/发布会|记者会|新闻发布|press.?conference/.test(v)) return 'press';
   if (/见面会|签售|fan.?meet|fan.?sign/.test(v)) return 'meet';
   if (/颁奖|红毯|award|red.?carpet/.test(v)) return 'awards';
