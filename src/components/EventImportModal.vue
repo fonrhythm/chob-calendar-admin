@@ -11,7 +11,7 @@ import { importEventBundles } from '@/lib/events';
 const props = defineProps({ workspace: Object }),
   emit = defineEmits(['close', 'saved', 'imported']);
 const completed = ref(0),
-  editingId = ref('');
+  editingId = ref(''), importMode = ref('draft');
 const editFields = {
   name: '艺人（多人用 / 分隔）',
   activity: '活动名称',
@@ -23,7 +23,7 @@ const editFields = {
   region: '地区',
   participation_condition: '参与方式',
   picture_url: '图片链接',
-  ticket_url: '票务链接',
+  ticket_url: '活动链接（购票或原文）',
   note: '备注',
   sale_date: '开票日期',
   sale_time: '开票时间',
@@ -42,6 +42,9 @@ const preview = computed(() =>
 const invalid = computed(
   () => preview.value.filter((r) => r.problems.length).length,
 );
+const eligible = computed(() => preview.value.filter((r) =>
+  !r.problems.length && (importMode.value === 'draft' || !r.event.attributes?.unmatched_import_names?.length),
+));
 let readId = 0;
 async function choose(e) {
   const file = e.target.files?.[0];
@@ -70,13 +73,14 @@ async function choose(e) {
   }
 }
 async function submit() {
-  const valid = preview.value.filter((r) => !r.problems.length);
+  const valid = eligible.value;
   if (busy.value || !valid.length) return;
   busy.value = true;
   error.value = '';
   try {
     await importEventBundles(
       valid.map((r) => ({ event: r.event, tasks: r.tasks })),
+      importMode.value,
     );
     const ids = new Set(valid.map((r) => r.event.id));
     rows.value = rows.value.filter((r) => !ids.has(r.id));
@@ -94,6 +98,10 @@ function downloadTemplate() {
   a.href = import.meta.env.BASE_URL + 'templates/events-import.xlsx';
   a.download = '活动导入模板.xlsx';
   a.click();
+}
+function removeRow(id) {
+  rows.value = rows.value.filter((row) => row.id !== id);
+  if (editingId.value === id) editingId.value = '';
 }
 </script>
 <template>
@@ -192,6 +200,7 @@ function downloadTemplate() {
                   >
                     修正此行
                   </button>
+                  <button class="btn-ghost text-red-700" :disabled="busy" @click="removeRow(r.event.id)">移除此行</button>
                   <div v-if="editingId === r.event.id" class="import-editor">
                     <label v-for="(label, key) in editFields" :key="key"
                       >{{ label
@@ -227,6 +236,13 @@ function downloadTemplate() {
           点击“修正此行”即可直接修改。无法匹配的艺人会保留原始名称，导入后在后台完成匹配才能发布。
         </p></template
       >
+      <label v-if="rows.length" class="block">导入方式
+        <select v-model="importMode" class="input-field mt-1" :disabled="busy">
+          <option value="draft">保存为草稿</option>
+          <option value="published">即刻发布</option>
+        </select>
+      </label>
+      <p v-if="importMode === 'published' && preview.some((r) => !r.problems.length && r.event.attributes?.unmatched_import_names?.length)" class="text-amber-800 text-sm">待匹配艺人会留在预览中；可先发布其余活动，再切换为草稿导入这些行。</p>
       <div class="flex justify-end gap-3">
         <button
           class="btn-secondary"
@@ -236,11 +252,11 @@ function downloadTemplate() {
           取消</button
         ><button
           class="btn-primary"
-          :disabled="busy || reading || rows.length === invalid"
+          :disabled="busy || reading || !eligible.length"
           @click="submit"
         >
           {{
-            busy ? '正在导入…' : `导入 ${rows.length - invalid} 条可导入草稿`
+            busy ? '正在导入…' : `${importMode === 'published' ? '即刻发布' : '导入草稿'} ${eligible.length} 条`
           }}
         </button>
       </div>

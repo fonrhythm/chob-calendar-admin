@@ -127,10 +127,12 @@ export function readImportRows(rows) {
 export const csvImportRows = (source) => readImportRows(parseCsv(source));
 export function eventFingerprint(e) {
   return [
-    normalize(e.title),
-    e.date,
+    [...(e.artist_ids || [])].sort().join(',') ||
+      normalize((e.attributes?.import_artist_names || []).join('/')),
+    activityCategory(e.attributes?.activity_category || e.category || ''),
+    normalize(e.location_region),
     normalize(e.location),
-    [...(e.artist_ids || [])].sort().join(','),
+    e.date,
   ].join('|');
 }
 function matchRecord(value, records, keys) {
@@ -188,7 +190,7 @@ export function previewImport(rows, workspace, defaults = {}) {
     const category = activityCategory(types[0]?.name || typeValue);
     const knownCategory =
       ACTIVITY_TYPES.some((t) => t.name === typeValue || t.id === typeValue) ||
-      /见面|音乐|品牌|节目|直播|站台|影视|演出|红毯|商务|颁奖|其他/.test(
+      /见面|签售|音乐|品牌|节目|直播|站台|影视|演出|红毯|商务|颁奖|发布会|记者会|其他/.test(
         typeValue,
       );
     if (typeValue && !types.length && !knownCategory)
@@ -298,7 +300,7 @@ export function previewImport(rows, workspace, defaults = {}) {
     if (validation) problems.push(validation);
     const key = eventFingerprint(event);
     if (existing.has(key))
-      problems.push('数据库中已有相同艺人、活动名称、日期和场地的活动');
+      problems.push('数据库中已有相同艺人、类型、地址和日期的活动');
     if (seen.has(key)) problems.push('文件中有重复活动');
     seen.add(key);
     return {

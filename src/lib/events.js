@@ -16,7 +16,7 @@ export async function loadEventWorkspace() {
     allRows('participation_conditions'),
     allRows('cp_pairs'),
   ]);
-  return { events, tasks, artists, types, conditions, pairs };
+  return { events: events.filter((event) => !event.attributes?.admin_deleted_at), tasks, artists, types, conditions, pairs };
 }
 export function newEvent() {
   return {
@@ -58,15 +58,24 @@ export async function saveEventWithTasks(event, tasks, notice = null) {
   }
   return data;
 }
-export async function importEventBundles(bundles) {
-  const { data, error } = await supabase.rpc('chob_import_event_bundles', {
+export async function importEventBundles(bundles, mode = 'draft') {
+  const { data, error } = await supabase.rpc('chob_import_event_bundles_v2', {
     bundles,
+    publish_now: mode === 'published',
   });
   if (error)
     throw new Error(
       error.code === 'PGRST202'
-        ? '请先执行 004_event_form_import.sql，再导入。'
+        ? '请先执行 017_event_bulk_management.sql，再导入。'
         : error.message,
     );
+  return data;
+}
+export async function manageEvents(ids, operation) {
+  const { data, error } = await supabase.rpc('chob_manage_events', {
+    event_ids: ids,
+    operation,
+  });
+  if (error) throw new Error(error.code === 'PGRST202' ? '请先执行 017_event_bulk_management.sql。' : error.message);
   return data;
 }

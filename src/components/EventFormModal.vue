@@ -309,7 +309,6 @@ onUnmounted(() => {
           >
           <label class="field"
             >活动状态<select v-model="form.attributes.event_status">
-              <option :value="undefined">正常</option>
               <option value="active">正常</option>
               <option value="cancelled">已取消</option>
               <option value="postponed">已延期</option>
@@ -467,9 +466,9 @@ onUnmounted(() => {
             ></textarea>
           </label>
           <label class="field"
-            >票务链接<input
+            >活动链接（购票或原文）<input
               v-model="form.ticket_url"
-              aria-label="票务链接"
+              aria-label="活动链接"
               type="url"
               placeholder="https://..."
           /></label>

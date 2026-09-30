@@ -35,6 +35,7 @@ test('community workflow enforces ownership, edit limits, immediate flags, reply
       '014_activity_labels.sql',
       '015_scheduling_import_drafts.sql',
       '016_event_updates_and_details.sql',
+      '017_event_bulk_management.sql',
     ]) {
       const sql = await readFile(
         new URL('../supabase/' + file, import.meta.url),
@@ -379,6 +380,24 @@ test('community workflow enforces ownership, edit limits, immediate flags, reply
       ],
       saved.updated_at,
     ]);
+    const imported = {
+      ...pending,
+      id: '00000000-0000-4000-8000-000000000781',
+      title: 'Published from import',
+      date: '2026-11-03',
+      artist_ids: ['00000000-0000-4000-8000-000000000777'],
+      attributes: { region: 'thailand', picture_urls: [], activity_category: 'press', unmatched_import_names: [] },
+    };
+    await db.query('select public.chob_import_event_bundles_v2($1::jsonb,true)', [JSON.stringify([{ event: imported, tasks: [] }])]);
+    assert.equal((await db.query('select status from events where id=$1', [imported.id])).rows[0].status, 'published');
+    await assert.rejects(
+      db.query('select public.chob_import_event_bundles_v2($1::jsonb,true)', [JSON.stringify([{ event: { ...imported, id: '00000000-0000-4000-8000-000000000782', title: 'Different title' }, tasks: [] }])]),
+      /重复/,
+    );
+    await db.query('select public.chob_manage_events($1::uuid[],$2::text)', [[imported.id], 'delete']);
+    const removed = (await db.query('select status,attributes from events where id=$1', [imported.id])).rows[0];
+    assert.equal(removed.status, 'withdrawn');
+    assert.ok(removed.attributes.admin_deleted_at);
     await as(null, 'anon');
     assert.ok(
       (await call('chob_public_feed', [])).records.some(

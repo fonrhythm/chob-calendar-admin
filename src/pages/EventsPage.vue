@@ -2,7 +2,7 @@
 import { ACTIVITY_TYPES } from '@/lib/activity-types';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { loadEventWorkspace, EVENT_STATUSES } from '@/lib/events';
+import { loadEventWorkspace, EVENT_STATUSES, manageEvents } from '@/lib/events';
 import {
   bangkokDate,
   compareTasks,
@@ -37,7 +37,26 @@ const importOpen = ref(false),
   company = ref(''),
   eventType = ref(''),
   artistType = ref(''),
-  sort = ref('date-asc');
+  sort = ref('today-first');
+const selected = ref([]), actionBusy = ref(false);
+const selectable = computed(() => filtered.value.map((event) => event.id));
+function toggleAll(e) {
+  selected.value = e.target.checked ? [...selectable.value] : [];
+}
+async function runAction(ids, operation) {
+  if (!ids.length || actionBusy.value) return;
+  const label = operation === 'delete' ? '删除' : '即刻发布';
+  if (!window.confirm(`确定${label} ${ids.length} 个活动？`)) return;
+  actionBusy.value = true;
+  error.value = '';
+  try {
+    await manageEvents(ids, operation);
+    selected.value = [];
+    notice.value = `已${label} ${ids.length} 个活动。`;
+    await load();
+  } catch (e) { error.value = e.message; }
+  finally { actionBusy.value = false; }
+}
 const companies = computed(() =>
   [
     ...new Set(workspace.value.events.map((e) => e.company).filter(Boolean)),
@@ -107,6 +126,7 @@ const editingTasks = computed(() =>
 );
 watch([search, status, company, eventType, artistType, sort], () => {
   page.value = 1;
+  selected.value = [];
 });
 function edit(event = null) {
   editing.value = event;
@@ -202,6 +222,7 @@ onMounted(load);
             class="input-field sm:!w-44"
           >
             <option value="">全部状态</option>
+            <option value="past">过往活动</option>
             <option
               v-for="(label, value) in EVENT_STATUSES"
               :key="value"
@@ -236,6 +257,7 @@ onMounted(load);
             <option v-for="t in artistTypes" :key="t">{{ t }}</option>
           </select>
           <select v-model="sort" aria-label="排序" class="input-field sm:!w-48">
+            <option value="today-first">今天起的活动优先</option>
             <option value="date-asc">活动日期：从近到远</option>
             <option value="date-desc">活动日期：从远到近</option>
             <option value="created_at-desc">录入时间：最新优先</option>
@@ -245,10 +267,16 @@ onMounted(load);
             <option value="type-asc">活动类型：升序</option></select
           ><button class="btn-secondary" @click="load">刷新</button>
         </div>
+        <div class="flex flex-wrap items-center gap-3">
+          <label><input type="checkbox" :checked="!!selectable.length && selected.length === selectable.length" @change="toggleAll" /> 全选当前筛选结果</label>
+          <button class="btn-secondary" :disabled="actionBusy || !selected.length" @click="runAction(selected, 'publish')">批量即刻发布</button>
+          <button class="btn-secondary text-red-700" :disabled="actionBusy || !selected.length" @click="runAction(selected, 'delete')">批量删除</button>
+        </div>
         <div class="bg-white rounded-xl border overflow-x-auto">
           <table class="w-full text-left text-sm">
             <thead class="bg-gray-50 text-gray-500">
               <tr>
+                <th class="p-4">选择</th>
                 <th class="p-4">艺人 / 活动</th>
                 <th class="p-4">活动日期</th>
                 <th class="p-4">状态</th>
@@ -258,6 +286,7 @@ onMounted(load);
             </thead>
             <tbody class="divide-y">
               <tr v-for="event in visible" :key="event.id">
+                <td class="p-4"><input v-model="selected" type="checkbox" :value="event.id" :aria-label="`选择${event.title}`" /></td>
                 <td class="p-4">
                   <p class="font-semibold">
                     {{
@@ -313,10 +342,11 @@ onMounted(load);
                   >
                     编辑
                   </button>
+                  <button class="btn-ghost text-red-700" :disabled="actionBusy" @click="runAction([event.id], 'delete')">删除</button>
                 </td>
               </tr>
               <tr v-if="!visible.length">
-                <td colspan="5" class="p-12 text-center text-gray-500">
+                <td colspan="6" class="p-12 text-center text-gray-500">
                   {{
                     workspace.events.length
                       ? '没有符合条件的活动。'

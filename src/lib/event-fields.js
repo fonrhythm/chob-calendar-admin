@@ -1,6 +1,7 @@
 import { displayArtistName } from './artists.js';
 import { activityCategory } from './activity-types.js';
 import { safeWebUrl, validateTasks } from './tasks.js';
+import { bangkokDate } from './tasks.js';
 export const recordLabel = (item) =>
   item?.name || item?.label || item?.code || item?.id || '';
 export const imageUrls = (value) => [
@@ -65,11 +66,11 @@ export function filterSortEvents(events, artists, types, filters) {
     company = '',
     type = '',
     artistType = '',
-    sort = 'date-asc',
+    sort = 'today-first',
   } = filters;
   const list = events.filter(
     (e) =>
-      (!status || e.status === status) &&
+      (!status || (status === 'past' ? e.date < bangkokDate() : e.status === status)) &&
       (!company || (e.company || '') === company) &&
       (!type ||
         e.event_type_id === type ||
@@ -85,6 +86,15 @@ export function filterSortEvents(events, artists, types, filters) {
         .toLowerCase()
         .includes(search.trim().toLowerCase()),
   );
+  if (sort === 'today-first') {
+    const today = bangkokDate();
+    return list.sort((a, b) => {
+      const aPast = a.date < today;
+      const bPast = b.date < today;
+      if (aPast !== bPast) return aPast ? 1 : -1;
+      return aPast ? b.date.localeCompare(a.date) : a.date.localeCompare(b.date);
+    });
+  }
   const [field, direction] = sort.split('-'),
     sign = direction === 'desc' ? -1 : 1;
   const key = (e) =>
