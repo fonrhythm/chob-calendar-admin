@@ -1,6 +1,9 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore';
 import { configurationError, recoveryPending } from '@/config/supabase';
+import CommunityPage from '@/pages/CommunityPage.vue';
+import AuditPage from '@/pages/AuditPage.vue';
+import UsersPage from '@/pages/UsersPage.vue';
 
 // 页面组件
 const LoginPage = () => import('@/pages/LoginPage.vue');
@@ -11,7 +14,6 @@ const Dashboard = () => import('@/pages/FoundationDashboard.vue');
 const ArtistsPage = () => import('@/pages/ArtistsPage.vue');
 const EventsPage = () => import('@/pages/EventsPage.vue');
 const TasksPage = EventsPage;
-const UsersPage = () => import('@/pages/UsersPage.vue');
 const ProfilePage = () => import('@/pages/AccountProfile.vue');
 const NotFound = () => import('@/pages/NotFound.vue');
 
@@ -52,13 +54,19 @@ const routes = [
       {
         path: 'community',
         name: 'Community',
-        component: () => import('@/pages/CommunityPage.vue'),
+        component: CommunityPage,
         meta: { title: '消息与核实', adminOnly: true },
+      },
+      {
+        path: 'announcements',
+        name: 'Announcements',
+        component: CommunityPage,
+        meta: { title: '消息/公告管理', adminOnly: true },
       },
       {
         path: 'logs',
         name: 'Logs',
-        component: () => import('@/pages/AuditPage.vue'),
+        component: AuditPage,
         meta: { title: '操作记录', adminOnly: true },
       },
       {

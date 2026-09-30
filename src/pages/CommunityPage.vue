@@ -1,14 +1,16 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import { allRows, rpc } from '@/lib/api';
 import { duplicateNoticeGroups, recentNotices } from '@/lib/announcement-management';
+const route = useRoute();
 const reports = ref([]),
   events = ref([]),
   notices = ref([]),
   error = ref(''),
   message = ref(''),
   busy = ref(false),
-  tab = ref('corrections'),
+  tab = ref(route.name === 'Announcements' ? 'announcements' : 'corrections'),
   forms = ref({}),
   noticeForms = ref({}),
   editingNotice = ref(''),
@@ -131,6 +133,26 @@ async function setNoticeVisibility(ids, published) {
     busy.value = false;
   }
 }
+async function deleteNotices(ids) {
+  if (busy.value || !ids.length) return;
+  if (!window.confirm(`永久删除选中的 ${ids.length} 条公告？此操作不会删除或更改关联活动。`)) return;
+  busy.value = true;
+  error.value = '';
+  message.value = '';
+  try {
+    const deleted = await rpc('chob_delete_announcements', { record_ids: ids });
+    selectedNotices.value = selectedNotices.value.filter((id) => !ids.includes(id));
+    if (ids.includes(editingNotice.value)) editingNotice.value = '';
+    await load();
+    message.value = `已删除 ${deleted} 条公告，关联活动未更改。`;
+  } catch (cause) {
+    error.value = cause.code === 'PGRST202'
+      ? '请先在 Supabase 执行 021_announcement_deletion.sql。'
+      : cause.message;
+  } finally {
+    busy.value = false;
+  }
+}
 function resolve(r) {
   const f = forms.value[r.id],
     changes = { ...f.changes };
@@ -170,24 +192,28 @@ function duplicate(group, action) {
   );
 }
 onMounted(load);
+watch(() => route.name, (name) => {
+  tab.value = name === 'Announcements' ? 'announcements' : 'corrections';
+  error.value = '';
+  message.value = '';
+});
 </script>
 <template>
   <section class="space-y-5">
     <header>
-      <h1 class="text-2xl font-bold">消息与核实</h1>
+      <h1 class="text-2xl font-bold">{{ route.name === 'Announcements' ? '消息/公告管理' : '消息与核实' }}</h1>
       <p class="text-gray-500 mt-2">
-        处理纠错、新艺人和重复记录；公开公告会同步到前台。
+        {{ route.name === 'Announcements' ? '编辑、隐藏或删除公告，可关联活动；公开内容会同步到前台。' : '处理纠错、新艺人和重复记录。' }}
       </p>
     </header>
     <p v-if="error" role="alert" class="text-red-700">{{ error }}</p>
     <p v-if="message" role="status">{{ message }}</p>
-    <nav class="flex flex-wrap gap-3">
+    <nav v-if="route.name !== 'Announcements'" class="flex flex-wrap gap-3">
       <button
         v-for="(label, key) in {
           corrections: '纠错',
           artists: '待匹配艺人',
           duplicates: '疑似重复',
-          announcements: '消息 / 公告',
         }"
         :key="key"
         :class="tab === key ? 'btn-primary' : 'btn-secondary'"
@@ -196,6 +222,7 @@ onMounted(load);
         {{ label }}</button
       ><button class="btn-secondary" @click="load">刷新</button>
     </nav>
+    <button v-else class="btn-secondary" @click="load">刷新</button>
     <template v-if="tab === 'corrections'"
       ><article v-for="r in pending" :key="r.id" class="card space-y-4">
         <h2 class="text-lg font-bold">{{ title(r.event_id) }}</h2>
@@ -344,6 +371,7 @@ onMounted(load);
           <label class="flex gap-2"><input type="checkbox" :checked="managedNotices.length > 0 && managedNotices.every((n) => selectedNotices.includes(n.id))" @change="selectedNotices = $event.target.checked ? [...new Set([...selectedNotices, ...managedNotices.map((n) => n.id)])] : selectedNotices.filter((id) => !managedNotices.some((n) => n.id === id))" />选择当前结果</label>
           <button class="btn-secondary" :disabled="busy || !selectedNotices.length" @click="setNoticeVisibility(selectedNotices, false)">批量隐藏（{{ selectedNotices.length }}）</button>
           <button class="btn-secondary" :disabled="busy || !selectedNotices.length" @click="setNoticeVisibility(selectedNotices, true)">批量恢复</button>
+          <button class="btn-secondary text-red-700" :disabled="busy || !selectedNotices.length" @click="deleteNotices([...selectedNotices])">批量删除（{{ selectedNotices.length }}）</button>
         </div>
       </section>
       <section v-if="noticeDuplicates.length" class="card space-y-3">
@@ -371,6 +399,7 @@ onMounted(load);
           <p class="text-sm text-gray-500">{{ n.published ? '前台显示' : '未公开' }} · {{ title(n.event_id) }}</p>
           <button class="btn-secondary" @click="editingNotice = n.id">编辑</button>
           <button class="btn-secondary ml-2" :disabled="busy" @click="setNoticeVisibility([n.id], !n.published)">{{ n.published ? '从前台隐藏' : '恢复公开' }}</button>
+          <button class="btn-secondary ml-2 text-red-700" :disabled="busy" @click="deleteNotices([n.id])">删除</button>
           <button
             v-if="n.event_id && /延期/.test(n.title + n.body) && events.find((e) => e.id === n.event_id)?.attributes?.event_status !== 'postponed'"
             class="btn-secondary ml-2"

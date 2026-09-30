@@ -40,6 +40,7 @@ test('community workflow enforces ownership, edit limits, immediate flags, reply
       '018_backend_access_approval.sql',
       '019_editor_permissions.sql',
       '020_fashion_week.sql',
+      '021_announcement_deletion.sql',
     ]) {
       const sql = await readFile(
         new URL('../supabase/' + file, import.meta.url),
@@ -409,7 +410,11 @@ test('community workflow enforces ownership, edit limits, immediate flags, reply
     assert.equal((await db.query('select status from events where id=$1', [editorEvent.id])).rows[0].status, 'draft');
     await assert.rejects(db.query('select public.chob_review_backend_user($1,$2)', [other, 'approved']), /仅管理员/);
     await assert.rejects(call('chob_save_announcement', [{ title: 'Denied announcement' }]), /仅管理员/);
+    await assert.rejects(call('chob_delete_announcements', [[editableNotice.id]]), /仅管理员/);
     await as(admin);
+    assert.equal(await call('chob_delete_announcements', [[editableNotice.id]]), 1);
+    assert.equal((await db.query('select count(*)::int n from chob_announcements where id=$1', [editableNotice.id])).rows[0].n, 0);
+    assert.equal((await db.query('select count(*)::int n from events where id=$1', [id])).rows[0].n, 1);
     await db.query('select public.chob_review_backend_user($1,$2)', [fan, 'revoked']);
     await as(fan);
     await assert.rejects(call('chob_save_event_bundle_v2', [{ ...editorEvent, id: '00000000-0000-4000-8000-000000000784' }, [], null]), /管理员|编辑/);
