@@ -42,6 +42,7 @@ test('community workflow enforces ownership, edit limits, immediate flags, reply
       '020_fashion_week.sql',
       '021_announcement_deletion.sql',
       '022_artist_participation_corrections.sql',
+      '023_invitation_participation.sql',
     ]) {
       const sql = await readFile(
         new URL('../supabase/' + file, import.meta.url),
@@ -415,6 +416,11 @@ test('community workflow enforces ownership, edit limits, immediate flags, reply
     assert.equal(userEvent.description, 'Follow the published steps.');
     assert.equal((await db.query('select count(*)::int n from tasks where event_id=$1', [userEventId])).rows[0].n, 1);
     assert.ok(userEvent.attributes.user_task_id);
+    await db.exec('reset role');
+    await db.exec("insert into participation_conditions(id,code,name) values('00000000-0000-4000-8000-000000000785','invited_only','仅限受邀')");
+    await as(fan);
+    const invitedId = (await db.query('select public.chob_submit_event_with_tasks($1::jsonb,$2::jsonb,null,null) id', [JSON.stringify({ ...userPayload, activity: 'Invitation event', participation_condition: 'invited_only' }), '[]'])).rows[0].id;
+    assert.equal((await db.query('select count(*)::int n from tasks where event_id=$1', [invitedId])).rows[0].n, 0);
     const statusReport = await call('chob_report_correction', [userEventId, ['postponed'], 'Correct content: delayed; source: official notice']);
     await as(admin);
     await call('chob_resolve_correction', [statusReport, 'changed', '延期已确认', { postponed: '另行通知' }, false, '']);
