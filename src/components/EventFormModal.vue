@@ -31,6 +31,9 @@ const form = ref(
     : newEvent(),
 );
 form.value.attributes = { ...(form.value.attributes || {}) };
+const regionAliases = { thailand: '泰国', thai: '泰国', china: '中国', oversea: '海外', overseas: '海外', '其他国家或地区': '海外', '泰国': '泰国', '中国': '中国', '海外': '海外' };
+form.value.attributes.region = regionAliases[String(form.value.attributes.region || '').toLowerCase()] || '';
+const multiDay = ref(!!form.value.attributes.end_date && form.value.attributes.end_date > form.value.date);
 const tasks = ref(JSON.parse(JSON.stringify(props.tasks || [])));
 tasks.value = tasks.value.map((task) => ({
   ...task,
@@ -74,6 +77,7 @@ const timeText = ref(
 );
 const initial = JSON.stringify([
   form.value,
+  multiDay.value,
   tasks.value,
   pictureText.value,
   timeText.value,
@@ -95,6 +99,7 @@ const dirty = computed(
     initial !==
     JSON.stringify([
       form.value,
+      multiDay.value,
       tasks.value,
       pictureText.value,
       timeText.value,
@@ -115,13 +120,7 @@ const artistTypes = computed(() => [
     ].filter(Boolean),
   ),
 ]);
-const regions = computed(() => [
-  ...new Set(
-    ['泰国', '其他国家或地区', '线上', form.value.attributes.region].filter(
-      Boolean,
-    ),
-  ),
-]);
+const regions = ['泰国', '中国', '海外'];
 async function postpone() {
   if (!props.event || busy.value) return;
   if (!window.confirm(datePending.value ? '将原活动标记为延期，日期另行通知？' : '保留原日期的延期记录，并创建或更新关联的新日期活动？')) return;
@@ -167,6 +166,7 @@ const unresolved = ref(form.value.attributes.unmatched_import_names || []),
   resolutions = ref({});
 async function save(status) {
   if (busy.value) return;
+  if (multiDay.value && !form.value.attributes.end_date) { error.value = '请选择多日活动的结束日期。'; return; }
   tried.value = true;
   busy.value = true;
   error.value = '';
@@ -196,6 +196,8 @@ async function save(status) {
     time: eventTime(timeText.value),
     attributes: {
       ...form.value.attributes,
+      end_date: multiDay.value ? form.value.attributes.end_date : '',
+      recurring_daily: multiDay.value,
       unmatched_import_names: unresolved.value.filter(
         (n) => !resolutions.value[n],
       ),
@@ -274,14 +276,14 @@ onUnmounted(() => {
               :original-name="name"
             />
           </section>
-          <label class="field"
-            >活动名称 <b>*</b
+          <div class="field title-field"
+            ><span class="title-label">活动名称 <b>*</b><label class="display-name-toggle"><input type="checkbox" v-model="form.attributes.prefer_activity_name" />显示名称</label></span
             ><input
               v-model="form.title"
               aria-label="活动名称"
               required
               maxlength="200"
-          /></label>
+          /></div>
           <label class="field"
             >活动类型<select
               v-model="form.attributes.activity_category"
@@ -348,6 +350,8 @@ onUnmounted(() => {
               type="date"
               required
           /></label>
+          <label class="multiday-toggle"><input type="checkbox" v-model="multiDay" />连续多日活动</label>
+          <label v-if="multiDay" class="field">结束日期 <b>*</b><input v-model="form.attributes.end_date" type="date" :min="form.date" required aria-label="活动结束日期" /><small>每天显示同一场活动，共用下方开票等参与事项；删除整场活动时一起移除。</small></label>
           <label class="field"
             >时间<input
               v-model="timeText"
@@ -622,6 +626,8 @@ onUnmounted(() => {
   </dialog>
 </template>
 <style scoped>
+.title-label{display:flex;align-items:center;justify-content:space-between;gap:12px}.display-name-toggle,.multiday-toggle{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:400;margin-bottom:12px}.display-name-toggle input,.multiday-toggle input{width:16px;height:16px}
+
 .artist-kind-options {
   display: flex;
   flex-wrap: wrap;

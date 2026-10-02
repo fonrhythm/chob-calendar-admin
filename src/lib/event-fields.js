@@ -26,6 +26,8 @@ export function validateEvent(event, tasks = []) {
     new Date(event.date).toISOString().slice(0, 10) !== event.date
   )
     return '请填写有效的活动日期。';
+  const end = event.attributes?.end_date;
+  if (end && (!/^\d{4}-\d{2}-\d{2}$/.test(end) || Number.isNaN(Date.parse(end)) || new Date(end).toISOString().slice(0,10) !== end || end < event.date)) return '结束日期必须有效，且不能早于开始日期。';
   if (!event.location?.trim()) return '请填写场地；线上活动可填写直播平台。';
   if (
     event.status === 'published' &&
@@ -67,6 +69,7 @@ export function filterSortEvents(events, artists, types, filters) {
     type = '',
     artistType = '',
     sort = 'today-first',
+    pairs = [],
   } = filters;
   const list = events.filter(
     (e) =>
@@ -82,7 +85,7 @@ export function filterSortEvents(events, artists, types, filters) {
         (e.attributes?.artist_types || [e.attributes?.artist_type]).includes(
           artistType,
         )) &&
-      `${eventArtistNames(e, artists)} ${e.title} ${e.location || ''} ${e.company || ''}`
+      `${eventArtistNames(e, artists)} ${pairs.filter(p => !p.deleted_at && ((e.attributes?.cp_ids || []).includes(p.id) || (e.artist_ids || []).includes(p.artist_1_id) && (e.artist_ids || []).includes(p.artist_2_id))).map(p => p.cp_name).join(' ')} ${e.title} ${e.location || ''} ${e.company || ''}`
         .toLowerCase()
         .includes(search.trim().toLowerCase()),
   );

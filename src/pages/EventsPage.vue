@@ -85,6 +85,7 @@ const filtered = computed(() =>
     workspace.value.artists,
     workspace.value.types,
     {
+      pairs: workspace.value.pairs || [],
       search: search.value,
       status: status.value,
       company: company.value,
