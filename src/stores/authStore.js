@@ -114,6 +114,7 @@ export const useAuthStore = defineStore('auth', () => {
         email: email.trim(),
         password,
         options: {
+          data: { backend_access_requested: true },
           emailRedirectTo: new URL(import.meta.env.BASE_URL, location.origin)
             .href,
         },

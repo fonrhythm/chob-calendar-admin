@@ -4,6 +4,7 @@ import { configurationError, recoveryPending } from '@/config/supabase';
 import CommunityPage from '@/pages/CommunityPage.vue';
 import AuditPage from '@/pages/AuditPage.vue';
 import UsersPage from '@/pages/UsersPage.vue';
+import MembersPage from '@/pages/MembersPage.vue';
 import AccountProfile from '@/pages/AccountProfile.vue';
 
 // 页面组件
@@ -94,10 +95,14 @@ const routes = [
         meta: { title: '事项管理', editorAllowed: true },
       },
       {
+        path: 'members', name: 'Members', component: MembersPage,
+        meta: { title: '用户管理', adminOnly: true },
+      },
+      {
         path: 'users',
         name: 'Users',
         component: UsersPage,
-        meta: { title: '用户管理', adminOnly: true },
+        meta: { title: '后台成员', adminOnly: true },
       },
       {
         path: 'profile',

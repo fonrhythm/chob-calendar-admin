@@ -28,7 +28,8 @@ const items = computed(() => [
         { path: '/community', label: '消息与核实' },
         { path: '/announcements', label: '消息/公告管理' },
         { path: '/logs', label: '操作记录' },
-        { path: '/users', label: '用户审核' },
+        { path: '/members', label: '用户管理' },
+        { path: '/users', label: '后台成员' },
       ]
     : []),
   { path: '/profile', label: '账号资料' },

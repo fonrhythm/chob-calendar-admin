@@ -14,7 +14,7 @@ const statusLabels = {
   revoked: '已撤销',
 };
 const visible = computed(() => [...accounts.value]
-  .filter((account) => account.role !== 'admin')
+  .filter((account) => account.role !== 'admin' && account.backend_access_requested === true)
   .sort((a, b) => {
     const order = { pending: 0, approved: 1, rejected: 2, revoked: 3 };
     return (order[a.backend_review_status] ?? 4) - (order[b.backend_review_status] ?? 4) ||
@@ -26,7 +26,7 @@ async function load() {
   loading.value = true;
   error.value = '';
   const { data, error: problem } = await supabase.from('users')
-    .select('id,email,nickname,role,email_verified,is_active,backend_approved,backend_review_status')
+    .select('id,email,nickname,role,email_verified,is_active,backend_approved,backend_review_status,backend_access_requested')
     .order('email');
   if (problem) error.value = problem.code === '42703' || problem.code === 'PGRST204'
     ? '请先在 Supabase 执行 018_backend_access_approval.sql。'
@@ -63,8 +63,8 @@ onMounted(load);
   <section class="space-y-5">
     <header class="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h1 class="text-2xl font-bold">用户审核</h1>
-        <p class="text-gray-500 mt-1">新注册账号完成邮箱验证后，仍需你批准才能进入后台。待审核 {{ pendingCount }} 人。</p>
+        <h1 class="text-2xl font-bold">后台成员</h1>
+        <p class="text-gray-500 mt-1">这里只审核申请进入管理后台的账号，普通网站用户在“用户管理”中查看。待审核 {{ pendingCount }} 人。</p>
       </div>
       <button class="btn-secondary" :disabled="loading" @click="load">刷新</button>
     </header>
@@ -83,8 +83,8 @@ onMounted(load);
           <button v-if="account.backend_approved" class="btn-secondary text-red-700" :disabled="!!busyId" @click="review(account, 'revoked')">撤销权限</button>
         </div>
       </article>
-      <p v-if="!visible.length" class="text-gray-500">暂无普通注册账号。</p>
+      <p v-if="!visible.length" class="text-gray-500">暂无后台访问申请。</p>
     </div>
-    <p class="text-sm text-gray-500">活动编辑可管理活动和参与事项；用户审核、消息核实、艺人资料修改及操作记录仍仅管理员可用。</p>
+    <p class="text-sm text-gray-500">活动编辑可管理活动和参与事项；后台成员、消息核实、艺人资料修改及操作记录仍仅管理员可用。</p>
   </section>
 </template>
