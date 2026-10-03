@@ -16,7 +16,7 @@ export async function loadEventWorkspace() {
     allRows('participation_conditions'),
     allRows('cp_pairs'),
   ]);
-  return { events: events.filter((event) => !event.attributes?.admin_deleted_at), tasks, artists, types, conditions, pairs };
+  return { deletedEvents: events.filter((event) => event.attributes?.admin_deleted_at), events: events.filter((event) => !event.attributes?.admin_deleted_at), tasks, artists, types, conditions, pairs };
 }
 export function newEvent() {
   return {

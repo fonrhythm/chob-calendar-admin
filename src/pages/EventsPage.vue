@@ -1,6 +1,6 @@
 <script setup>
 import { supabase } from '@/config/supabase';
-import { allRows } from '@/lib/api';
+import { allRows, rpc } from '@/lib/api';
 import { findSimilarEvents } from '@/lib/event-similarity';
 import { ACTIVITY_TYPES } from '@/lib/activity-types';
 import { computed, onMounted, ref, watch } from 'vue';
@@ -41,6 +41,9 @@ const importOpen = ref(false),
   eventType = ref(''),
   artistType = ref(''),
   sort = ref('today-first');
+const trashOpen = ref(false);
+const deletedEvents = computed(() => workspace.value.deletedEvents || []);
+const trashDate = value => value ? new Date(value).toLocaleString('zh-CN', { hour12: false }) : '等待安排';
 const selected = ref([]), actionBusy = ref(false);
 const selectable = computed(() => filtered.value.map((event) => event.id));
 function toggleAll(e) {
@@ -48,12 +51,13 @@ function toggleAll(e) {
 }
 async function runAction(ids, operation) {
   if (!ids.length || actionBusy.value) return;
-  const label = operation === 'delete' ? '删除' : '即刻发布';
+  const label = operation === 'delete' ? '移入回收站（3天后自动清除）' : operation === 'restore' ? '恢复为草稿' : '即刻发布';
   if (!window.confirm(`确定${label} ${ids.length} 个活动？`)) return;
   actionBusy.value = true;
   error.value = '';
   try {
-    await manageEvents(ids, operation);
+    if (operation === 'restore') await rpc('chob_restore_events', { event_ids: ids });
+    else await manageEvents(ids, operation);
     selected.value = [];
     notice.value = `已${label} ${ids.length} 个活动。`;
     await load();
@@ -243,6 +247,17 @@ onMounted(load);
       正在加载活动与事项…
     </p>
     <template v-else-if="ready">
+      <section v-if="!isTasks" class="border rounded-xl p-4 space-y-3">
+        <button class="btn-secondary" @click="trashOpen = !trashOpen">{{ trashOpen ? '收起' : '打开' }}已删除活动 · 回收站（{{ deletedEvents.length }}）</button>
+        <template v-if="trashOpen">
+          <p class="text-sm text-gray-500">删除后保留3天，到期自动清除（每5分钟检查）。恢复后活动及事项均为草稿，确认后可重新发布。</p>
+          <p v-if="!deletedEvents.length" class="text-gray-500">回收站为空。</p>
+          <article v-for="event in deletedEvents" :key="event.id" class="border rounded-lg p-3 flex flex-wrap justify-between gap-3">
+            <div><p class="font-semibold">{{ event.title || '未命名活动' }}</p><p class="text-sm">活动日期：{{ event.date }} · 删除时间：{{ trashDate(event.attributes.admin_deleted_at) }}</p><p class="text-sm text-gray-500">自动清除：{{ trashDate(event.trash_expires_at) }}</p></div>
+            <button class="btn-secondary" :disabled="actionBusy || new Date(event.trash_expires_at) <= new Date()" @click="runAction([event.id], 'restore')">恢复为草稿</button>
+          </article>
+        </template>
+      </section>
       <template v-if="!isTasks">
         <div class="flex flex-wrap gap-3">
           <input
