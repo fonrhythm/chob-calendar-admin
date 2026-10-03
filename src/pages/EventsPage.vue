@@ -96,14 +96,17 @@ const filtered = computed(() =>
     },
   ),
 );
-const similarPage = ref(1);
+const similarPage = ref(1), similarOpen = ref(false);
+function onSimilarToggle(event) {
+  if (event.target.isConnected) similarOpen.value = event.target.open;
+}
 const allSimilarPairs = computed(() => findSimilarEvents(workspace.value.events));
 const similarPairs = computed(() => {
   const ids = new Set(filtered.value.map(e => e.id));
   return allSimilarPairs.value.filter(p => p.events.some(e => ids.has(e.id)));
 });
 const visibleSimilar = computed(() => similarPairs.value.slice(0, similarPage.value * 10));
-watch(similarPairs, () => { similarPage.value = 1; });
+
 const visible = computed(() =>
   filtered.value.slice((page.value - 1) * 20, page.value * 20),
 );
@@ -277,7 +280,7 @@ onMounted(load);
             <option value="type-asc">活动类型：升序</option></select
           ><button class="btn-secondary" @click="load">刷新</button>
         </div>
-        <details class="bg-white rounded-xl border p-4">
+        <details :open="similarOpen" @toggle="onSimilarToggle" class="bg-white rounded-xl border p-4">
           <summary class="cursor-pointer font-semibold">相似活动（≥80%） · {{ similarPairs.length }} 对</summary>
           <p class="text-sm text-gray-500 my-3">按名称、重叠日期和艺人综合比较，仅供查重参考。保留当前筛选命中的活动及其相似记录；不同日期的独立场次不列入。</p>
           <article v-for="pair in visibleSimilar" :key="pair.key" class="border-t py-4">
