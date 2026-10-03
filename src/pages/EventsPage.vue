@@ -1,4 +1,6 @@
 <script setup>
+import { supabase } from '@/config/supabase';
+import { allRows } from '@/lib/api';
 import { findSimilarEvents } from '@/lib/event-similarity';
 import { ACTIVITY_TYPES } from '@/lib/activity-types';
 import { computed, onMounted, ref, watch } from 'vue';
@@ -100,10 +102,27 @@ const similarPage = ref(1), similarOpen = ref(false);
 function onSimilarToggle(event) {
   if (event.target.isConnected) similarOpen.value = event.target.open;
 }
+const ignoredRecords = ref([]), ignoreBusy = ref(false), ignoredOpen = ref(false), ignoredPage = ref(1);
+const ignoredKeys = computed(() => new Set(ignoredRecords.value.map(r => r.event_a + ':' + r.event_b)));
+const ignoredPairs = computed(() => ignoredRecords.value.map(r => ({...r, key: r.event_a + ':' + r.event_b, events: [r.event_a,r.event_b].map(id => workspace.value.events.find(e => e.id === id)).filter(Boolean)})).filter(p => p.events.length === 2));
+async function setIgnored(pair, ignore) {
+  if (ignoreBusy.value) return;
+  ignoreBusy.value = true; error.value = '';
+  const [a,b] = pair.key.split(':');
+  try {
+    const result = ignore
+      ? await supabase.from('chob_similarity_ignores').insert({event_a:a,event_b:b})
+      : await supabase.from('chob_similarity_ignores').delete().eq('event_a',a).eq('event_b',b);
+    if (result.error && !(ignore && result.error.code === '23505')) throw result.error;
+    ignoredRecords.value = await allRows('chob_similarity_ignores');
+    notice.value = ignore ? '已忽略这对活动，可在“已忽略”中恢复。' : '已恢复相似活动检查。';
+  } catch(e) { error.value = '操作失败：' + e.message; }
+  finally { ignoreBusy.value = false; }
+}
 const allSimilarPairs = computed(() => findSimilarEvents(workspace.value.events));
 const similarPairs = computed(() => {
   const ids = new Set(filtered.value.map(e => e.id));
-  return allSimilarPairs.value.filter(p => p.events.some(e => ids.has(e.id)));
+  return allSimilarPairs.value.filter(p => !ignoredKeys.value.has(p.key) && p.events.some(e => ids.has(e.id)));
 });
 const visibleSimilar = computed(() => similarPairs.value.slice(0, similarPage.value * 10));
 
@@ -150,7 +169,9 @@ async function load() {
   error.value = '';
   ready.value = false;
   try {
-    workspace.value = await loadEventWorkspace();
+    const [nextWorkspace, nextIgnored] = await Promise.all([loadEventWorkspace(), allRows('chob_similarity_ignores')]);
+    workspace.value = nextWorkspace;
+    ignoredRecords.value = nextIgnored;
     ready.value = true;
     page.value = Math.min(page.value, totalPages.value);
   } catch (e) {
@@ -284,6 +305,7 @@ onMounted(load);
           <summary class="cursor-pointer font-semibold">相似活动（≥80%） · {{ similarPairs.length }} 对</summary>
           <p class="text-sm text-gray-500 my-3">按名称、重叠日期和艺人综合比较，仅供查重参考。保留当前筛选命中的活动及其相似记录；不同日期的独立场次不列入。</p>
           <article v-for="pair in visibleSimilar" :key="pair.key" class="border-t py-4">
+            <button class="btn-secondary mb-2" :disabled="ignoreBusy" @click="setIgnored(pair, true)">忽略：不是重复活动</button>
             <p class="font-semibold">相似度 {{ pair.percent }}% <small class="font-normal text-gray-500">名称 {{ pair.titlePercent }}% · 艺人 {{ pair.artistPercent }}% · 日期重叠</small></p>
             <div class="grid md:grid-cols-2 gap-3 mt-2">
               <div v-for="event in pair.events" :key="event.id" class="rounded-lg bg-gray-50 p-3">
@@ -297,6 +319,20 @@ onMounted(load);
           </article>
           <p v-if="!similarPairs.length" class="text-gray-500">暂无达到 80% 的相似活动。</p>
           <button v-if="visibleSimilar.length < similarPairs.length" class="btn-secondary mt-3" @click="similarPage++">显示更多</button>
+        </details>
+        <details :open="ignoredOpen" @toggle="e => { if (e.target.isConnected) ignoredOpen = e.target.open; }" class="bg-white rounded-xl border p-4">
+          <summary class="cursor-pointer font-semibold">已忽略 · {{ ignoredPairs.length }} 对</summary>
+          <p class="text-sm text-gray-500 my-3">已确认不重复的活动组合，后台成员共享；忽略不会删除活动。</p>
+          <article v-for="pair in ignoredPairs.slice(0, ignoredPage * 10)" :key="pair.key" class="border-t py-3">
+            <div v-for="event in pair.events" :key="event.id" class="my-2">
+              <strong>{{ event.title }}</strong> · {{ event.date }}<span v-if="event.attributes?.end_date"> — {{ event.attributes.end_date }}</span>
+              <p class="text-sm text-gray-500">{{ eventArtistNames(event, workspace.artists) }} · {{ event.location || '场地待定' }}</p>
+              <button class="btn-ghost" @click="edit(event)">编辑</button>
+            </div>
+            <button class="btn-secondary" :disabled="ignoreBusy" @click="setIgnored(pair, false)">恢复检查</button>
+          </article>
+          <p v-if="!ignoredPairs.length" class="text-gray-500 mt-3">暂无已忽略活动。</p>
+          <button v-if="ignoredPairs.length > ignoredPage * 10" class="btn-secondary" @click="ignoredPage++">显示更多</button>
         </details>
         <div class="flex flex-wrap items-center gap-3">
           <label><input type="checkbox" :checked="!!selectable.length && selected.length === selectable.length" @change="toggleAll" /> 全选当前筛选结果</label>
