@@ -562,6 +562,8 @@ onUnmounted(() => {
                   /><small>不填为当天结束</small></label
                 >
               </div>
+              <label class="field"><span><input type="checkbox" v-model="task.is_closed" /> {{ task.task_type === 'ticketing' ? '已售罄' : task.task_type === 'shopping' ? '已截止' : '已结束' }}（可选）</span></label>
+              <label v-if="['registration','shopping'].includes(task.task_type)" class="field">公示名单链接（可选）<input v-model="task.result_url" type="url" maxlength="2048" placeholder="https://..." /></label>
               <label class="field"
                 >操作链接<input
                   v-model="task.action_url"

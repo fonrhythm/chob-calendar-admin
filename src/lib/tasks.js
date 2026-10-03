@@ -34,7 +34,7 @@ export function bangkokDate(now = new Date()) {
 }
 export function taskActiveOn(task, date) {
   return (
-    task.status === 'published' &&
+    task.status === 'published' && !task.is_closed &&
     !!task.start_date &&
     (!!task.end_date || task.task_type === 'ticketing') &&
     task.start_date <= date &&
@@ -63,6 +63,8 @@ export function newTask() {
     start_time: '',
     end_date: '',
     end_time: '',
+    is_closed: false,
+    result_url: '',
     action_url: '',
     description: '',
     status: 'draft',
@@ -111,7 +113,7 @@ export function validateTasks(tasks) {
       (task.start_time || '00:00') > (task.end_time || '23:59:59')
     )
       return prefix + '结束时间不能早于开始时间。';
-    if (!safeWebUrl(task.action_url))
+    if (!safeWebUrl(task.action_url) || !safeWebUrl(task.result_url))
       return prefix + '链接必须是完整的 http:// 或 https:// 地址。';
   }
   return '';
