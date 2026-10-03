@@ -193,6 +193,19 @@ test('组合保存、编辑、回收站、成员保护及权限', async () => {
     await db.exec('reset role');
     await db.exec(cleanup);
     assert.equal((await db.query('select deleted_at from artists where id=$1',[fresh.id])).rows[0].deleted_at,null);
+    await db.exec(await readFile(new URL('../supabase/029_catalog_import.sql',import.meta.url),'utf8'));
+    const batch=(entity,rows)=>db.query('select chob_import_catalog($1,$2,$3) as n',[entity,JSON.stringify(rows),'test.csv']);
+    await as(admin);
+    const p3=(await db.query('select chob_save_artist($1) as row',[JSON.stringify({name:'Third person',categories:[],aliases:[]})])).rows[0].row;
+    assert.equal((await batch('cp',[{cp_name:'Batch pair',artist_1_id:person1.id,artist_2_id:p3.id}])).rows[0].n,1);
+    await assert.rejects(batch('cp',[{cp_name:'Reverse pair',artist_1_id:p3.id,artist_2_id:person1.id}]),/已有/);
+    await assert.rejects(batch('cp',[{cp_name:'Group pair',artist_1_id:fresh.id,artist_2_id:p3.id}]),/个人艺人/);
+    assert.equal((await batch('group',[{name:'Imported band',type:'乐队',members:[p3.id],en_name:'Show',aliases:[]}])).rows[0].n,1);
+    assert.equal((await db.query("select group_kind from artists where name='Imported band'")).rows[0].group_kind,'band');
+    await assert.rejects(batch('group',[{name:'Rollback good',type:'组合',members:[]},{name:'Rollback bad',type:'bad',members:[]}]),/组合或乐队/);
+    assert.equal((await db.query("select id from artists where name='Rollback good'")).rows.length,0);
+    await as(fan);
+    await assert.rejects(batch('group',[{name:'Denied batch',type:'组合',members:[]}]),/仅管理员/);
     await as(fan);
     await assert.rejects(
       save({ ...payload, name: 'Denied', members: [] }),

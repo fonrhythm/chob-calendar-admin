@@ -7,9 +7,8 @@ import {
   displayArtistName,
   searchArtist,
   parseCsv,
-  rowsToArtists,
-  validateImport,
 } from '@/lib/artists';
+import { importSpecs, catalogTemplate, parseCatalogRows, prepareCatalogRows } from '@/lib/catalog-import';
 import ModalShell from '@/components/common/ModalShell.vue';
 import ArtistMultiSelect from '@/components/ArtistMultiSelect.vue';
 import { groupSaveError } from '@/lib/rpc-errors';
@@ -118,8 +117,11 @@ const filteredGroups = computed(() =>
   ),
 );
 
-const rows = computed(() => preview.value.map(artistPayload));
-const problems = computed(() => validateImport(rows.value, active.value));
+const importKind = ref('artists');
+const importSpec = computed(() => importSpecs[importKind.value]);
+const prepared = computed(() => prepareCatalogRows(preview.value, importKind.value, artists.value, pairs.value));
+const rows = computed(() => prepared.value.rows);
+const problems = computed(() => prepared.value.problems);
 
 // 需求3：CP 配对搜索的候选列表
 const cpArtistCandidates = computed(() => {
@@ -341,11 +343,12 @@ async function chooseFile(event) {
   event.target.value = '';
   if (!file) return;
   busy.value = true;
+  importKind.value = tab.value;
   error.value = '';
   preview.value = [];
   try {
     if (file.size > 2 * 1024 * 1024)
-      throw new Error('请使用2MB以内的文件，每批最多200位艺人。');
+      throw new Error('请使用2MB以内的文件，每批最多200条。');
     let grid;
     if (/\.csv$/i.test(file.name)) grid = parseCsv(await file.text());
     else if (/\.xlsx$/i.test(file.name)) {
@@ -353,11 +356,7 @@ async function chooseFile(event) {
       grid = await readSheet(file, 1);
     } else
       throw new Error('请选择UTF-8 CSV或.xlsx文件；旧版.xls请先另存为.xlsx。');
-    preview.value = rowsToArtists(grid).map((a) => ({
-      ...a,
-      categories: a.categories.join('; '),
-      aliases: a.aliases.join('; '),
-    }));
+    preview.value = parseCatalogRows(grid, importKind.value);
     filename.value = file.name;
     modal.value = 'import';
   } catch (e) {
@@ -370,18 +369,18 @@ async function chooseFile(event) {
 function importRows() {
   if (!rows.value.length || problems.value.some(Boolean)) return;
   return action(() =>
-    rpc('chob_import_artists', { rows: rows.value, file_name: filename.value }),
+    rpc(importKind.value === 'artists' ? 'chob_import_artists' : 'chob_import_catalog', { rows: rows.value, file_name: filename.value, ...(importKind.value === 'artists' ? {} : { entity: importKind.value }) }),
   );
 }
 
 function downloadTemplate() {
-  const blob = new Blob(['\uFEFF艺人名称,泰语名,显示名称,公司,类别,别名\r\n'], {
+  const blob = new Blob([catalogTemplate(tab.value)], {
     type: 'text/csv;charset=utf-8',
   });
   const url = URL.createObjectURL(blob),
     a = document.createElement('a');
   a.href = url;
-  a.download = '艺人导入模板.csv';
+  a.download = importSpecs[tab.value].label.replace('/', '-') + '导入模板.csv';
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -409,10 +408,10 @@ onMounted(load);
       </div>
       <div v-if="admin && loaded" class="flex flex-wrap gap-2">
         <button class="btn-secondary px-4 py-2" @click="downloadTemplate">
-          下载模板
+          下载{{ importSpecs[tab].label }}模板
         </button>
         <label class="btn-secondary px-4 py-2 cursor-pointer"
-          >{{ busy ? '处理中…' : '导入CSV / Excel'
+          >{{ busy ? '处理中…' : `导入${importSpecs[tab].label} CSV / Excel`
           }}<input
             type="file"
             class="sr-only"
@@ -822,7 +821,7 @@ onMounted(load);
       v-if="modal"
       :title="
         modal === 'import'
-          ? '确认导入预览'
+          ? `确认导入${importSpec.label}预览`
           : modal === 'cp'
             ? 'CP配对'
             : modal === 'group'
@@ -987,7 +986,10 @@ onMounted(load);
         <p>
           {{ filename }} · 共
           {{ rows.length }}
-          位艺人。Excel读取第一个工作表。可在下方更正；全部通过检查后才能导入。
+          条{{ importSpec.label }}资料。Excel读取第一个工作表。可在下方更正；全部通过检查后才能导入。
+        </p>
+        <p v-if="importKind !== 'artists'" class="text-sm text-gray-500">
+          艺人填写已有个人艺人的名称、显示名称或ID；重名时请填写ID。成员、别名用分号分隔。组合/乐队成员可留空，类型填写“组合”或“乐队”。
         </p>
         <div
           v-for="(r, i) in preview"
@@ -995,7 +997,7 @@ onMounted(load);
           class="border rounded-lg p-3 space-y-2 bg-gray-50"
         >
           <div class="flex items-start justify-between mb-2">
-            <p class="font-semibold">第 {{ i + 1 }} 位</p>
+            <p class="font-semibold">第 {{ i + 1 }} 条</p>
             <button
               type="button"
               class="text-red-700 hover:text-red-900 font-bold"
@@ -1005,14 +1007,7 @@ onMounted(load);
             </button>
           </div>
           <label
-            v-for="(label, key) in {
-              name: '艺人名称',
-              full_name: '泰语名',
-              en_name: '显示名称',
-              company: '公司',
-              categories: '类别（分号分隔）',
-              aliases: '别名（分号分隔）',
-            }"
+            v-for="(label, key) in importSpec.fields"
             :key="key"
             class="block text-sm"
           >
@@ -1028,7 +1023,7 @@ onMounted(load);
           :disabled="busy || !rows.length || problems.some(Boolean)"
           @click="importRows"
         >
-          {{ busy ? '导入中…' : `确认导入 ${rows.length} 位艺人` }}
+          {{ busy ? '导入中…' : `确认导入 ${rows.length} 条${importSpec.label}资料` }}
         </button>
         <p class="text-sm text-gray-500">
           整批写入；任何一条失败都会回滚，不会只导入一半。
