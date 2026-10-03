@@ -1,0 +1,7 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {findSimilarEvents} from '../src/lib/event-similarity.js';
+const event=(id,fields={})=>({id,title:'DAOU OFFROAD FAN PARTY 2026',date:'2026-10-30',artist_ids:['a','b'],...fields});
+test('near titles and same artists/date produce one pair',()=>{const result=findSimilarEvents([event('a'),event('b',{title:'Daou-Offroad Fan Party 2026!'})]);assert.equal(result.length,1);assert.equal(result[0].percent,100);});
+test('same artist alone does not make unrelated titles duplicates',()=>{assert.equal(findSimilarEvents([event('a'),event('b',{title:'Music Awards Ceremony'})]).length,0);});
+test('separate dates excluded, multiday overlapping date included',()=>{assert.equal(findSimilarEvents([event('a'),event('b',{date:'2026-10-31'})]).length,0);assert.equal(findSimilarEvents([event('a',{attributes:{end_date:'2026-10-31'}}),event('b',{date:'2026-10-31'})]).length,1);});
+test('deleted entries excluded and each pair appears once without mutation',()=>{const events=[event('a'),event('b'),event('c',{attributes:{admin_deleted_at:'2026-10-01'}})];const before=JSON.stringify(events);assert.equal(findSimilarEvents(events).length,1);assert.equal(JSON.stringify(events),before);});
+test('missing titles never count as similarity, Chinese punctuation normalized',()=>{assert.equal(findSimilarEvents([event('a',{title:''}),event('b',{title:''})]).length,0);assert.equal(findSimilarEvents([event('a',{title:'粉丝见面会！'}),event('b',{title:'粉丝 见面会'})])[0].percent,100);});

@@ -1,4 +1,5 @@
 <script setup>
+import { findSimilarEvents } from '@/lib/event-similarity';
 import { ACTIVITY_TYPES } from '@/lib/activity-types';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -95,6 +96,14 @@ const filtered = computed(() =>
     },
   ),
 );
+const similarPage = ref(1);
+const allSimilarPairs = computed(() => findSimilarEvents(workspace.value.events));
+const similarPairs = computed(() => {
+  const ids = new Set(filtered.value.map(e => e.id));
+  return allSimilarPairs.value.filter(p => p.events.some(e => ids.has(e.id)));
+});
+const visibleSimilar = computed(() => similarPairs.value.slice(0, similarPage.value * 10));
+watch(similarPairs, () => { similarPage.value = 1; });
 const visible = computed(() =>
   filtered.value.slice((page.value - 1) * 20, page.value * 20),
 );
@@ -268,6 +277,24 @@ onMounted(load);
             <option value="type-asc">活动类型：升序</option></select
           ><button class="btn-secondary" @click="load">刷新</button>
         </div>
+        <details class="bg-white rounded-xl border p-4">
+          <summary class="cursor-pointer font-semibold">相似活动（≥80%） · {{ similarPairs.length }} 对</summary>
+          <p class="text-sm text-gray-500 my-3">按名称、重叠日期和艺人综合比较，仅供查重参考。保留当前筛选命中的活动及其相似记录；不同日期的独立场次不列入。</p>
+          <article v-for="pair in visibleSimilar" :key="pair.key" class="border-t py-4">
+            <p class="font-semibold">相似度 {{ pair.percent }}% <small class="font-normal text-gray-500">名称 {{ pair.titlePercent }}% · 艺人 {{ pair.artistPercent }}% · 日期重叠</small></p>
+            <div class="grid md:grid-cols-2 gap-3 mt-2">
+              <div v-for="event in pair.events" :key="event.id" class="rounded-lg bg-gray-50 p-3">
+                <p class="font-semibold">{{ event.title }}</p>
+                <p>{{ eventArtistNames(event, workspace.artists) || '未关联艺人' }}</p>
+                <p class="text-sm text-gray-500">{{ event.date }}<span v-if="event.attributes?.end_date"> — {{ event.attributes.end_date }}</span> · {{ event.time || '时间待定' }} · {{ event.location || '场地待定' }} · {{ EVENT_STATUSES[event.status] || event.status }}</p>
+                <button class="btn-ghost" @click="edit(event)">编辑</button>
+                <button class="btn-ghost text-red-700" :disabled="actionBusy" @click="runAction([event.id], 'delete')">删除</button>
+              </div>
+            </div>
+          </article>
+          <p v-if="!similarPairs.length" class="text-gray-500">暂无达到 80% 的相似活动。</p>
+          <button v-if="visibleSimilar.length < similarPairs.length" class="btn-secondary mt-3" @click="similarPage++">显示更多</button>
+        </details>
         <div class="flex flex-wrap items-center gap-3">
           <label><input type="checkbox" :checked="!!selectable.length && selected.length === selectable.length" @change="toggleAll" /> 全选当前筛选结果</label>
           <button class="btn-secondary" :disabled="actionBusy || !selected.length" @click="runAction(selected, 'publish')">批量即刻发布</button>
