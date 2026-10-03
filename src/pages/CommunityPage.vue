@@ -1,4 +1,5 @@
 <script setup>
+import { normalizeSearch } from '../lib/artistFilters';
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { allRows, rpc } from '@/lib/api';
@@ -47,9 +48,8 @@ const managedNotices = computed(() =>
   recentNotices(notices.value).filter((notice) => {
     if (noticeFilter.value === 'published' && !notice.published) return false;
     if (noticeFilter.value === 'hidden' && notice.published) return false;
-    const query = noticeQuery.value.trim().toLowerCase();
-    return !query || [notice.title, notice.body, title(notice.event_id)]
-      .join(' ').toLowerCase().includes(query);
+    const query = normalizeSearch(noticeQuery.value);
+    return !query || normalizeSearch([notice.title, notice.body, title(notice.event_id)].join(' ')).includes(query);
   }),
 );
 const fields = {

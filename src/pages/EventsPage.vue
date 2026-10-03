@@ -1,4 +1,5 @@
 <script setup>
+import { eventArtistTypeKeys, artistTypeLabels } from '@/lib/artistFilters';
 import { supabase } from '@/config/supabase';
 import { allRows, rpc } from '@/lib/api';
 import { findSimilarEvents } from '@/lib/event-similarity';
@@ -73,9 +74,7 @@ const artistTypes = computed(() =>
   [
     ...new Set(
       workspace.value.events
-        .flatMap(
-          (e) => e.attributes?.artist_types || [e.attributes?.artist_type],
-        )
+        .flatMap(e => eventArtistTypeKeys(e, workspace.value.artists))
         .filter(Boolean),
     ),
   ].sort(),
@@ -303,7 +302,7 @@ onMounted(load);
             class="input-field sm:!w-44"
           >
             <option value="">全部艺人类别</option>
-            <option v-for="t in artistTypes" :key="t">{{ t }}</option>
+            <option v-for="t in artistTypes" :key="t" :value="t">{{ artistTypeLabels[t] || t }}</option>
           </select>
           <select v-model="sort" aria-label="排序" class="input-field sm:!w-48">
             <option value="today-first">今天起的活动优先</option>

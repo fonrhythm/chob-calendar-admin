@@ -1,3 +1,4 @@
+import { matchesArtistTypes, normalizeSearch } from './artistFilters.js';
 import { displayArtistName } from './artists.js';
 import { activityCategory } from './activity-types.js';
 import { safeWebUrl, validateTasks } from './tasks.js';
@@ -74,20 +75,16 @@ export function filterSortEvents(events, artists, types, filters) {
   const list = events.filter(
     (e) =>
       (!status || (status === 'past' ? e.date < bangkokDate() : e.status === status)) &&
-      (!company || (e.company || '') === company) &&
+      (!company || normalizeSearch(e.company) === normalizeSearch(company)) &&
       (!type ||
         e.event_type_id === type ||
         activityCategory(
           e.attributes?.activity_category ||
             recordLabel(types.find((t) => t.id === e.event_type_id)),
         ) === type) &&
-      (!artistType ||
-        (e.attributes?.artist_types || [e.attributes?.artist_type]).includes(
-          artistType,
-        )) &&
-      `${eventArtistNames(e, artists)} ${pairs.filter(p => !p.deleted_at && ((e.attributes?.cp_ids || []).includes(p.id) || (e.artist_ids || []).includes(p.artist_1_id) && (e.artist_ids || []).includes(p.artist_2_id))).map(p => p.cp_name).join(' ')} ${e.title} ${e.location || ''} ${e.company || ''}`
-        .toLowerCase()
-        .includes(search.trim().toLowerCase()),
+      (!artistType || matchesArtistTypes(e, artists, [artistType])) &&
+      normalizeSearch(`${eventArtistNames(e, artists)} ${pairs.filter(p => !p.deleted_at && ((e.attributes?.cp_ids || []).includes(p.id) || (e.artist_ids || []).includes(p.artist_1_id) && (e.artist_ids || []).includes(p.artist_2_id))).map(p => p.cp_name).join(' ')} ${e.title} ${e.location || ''} ${e.company || ''}`)
+        .includes(normalizeSearch(search)),
   );
   if (sort === 'today-first') {
     const today = bangkokDate();

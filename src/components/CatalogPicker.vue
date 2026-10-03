@@ -1,4 +1,5 @@
 <script setup>
+import { normalizeSearch } from '../lib/artistFilters';
 import { computed, ref } from 'vue';
 import { searchArtist } from '../lib/artists';
 const props = defineProps({
@@ -15,7 +16,7 @@ const candidates = computed(() =>
         !a.deleted_at &&
         !props.modelValue.includes(a.id) &&
         (searchArtist(a, query.value) ||
-          String(a.company || '').toLowerCase().includes(query.value.toLowerCase())),
+          normalizeSearch(a.company).includes(normalizeSearch(query.value))),
     )
     .slice(0, 50),
 );

@@ -1,4 +1,5 @@
 <script setup>
+import { artistTypeKey, artistTypeLabels, normalizeSearch } from '@/lib/artistFilters';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useAuthStore } from '@/stores/authStore';
 import { allRows, rpc } from '@/lib/api';
@@ -57,7 +58,7 @@ const companies = computed(() =>
   [...new Set(active.value.map((a) => a.company).filter(Boolean))].sort(),
 );
 const categories = computed(() =>
-  [...new Set(active.value.flatMap((a) => a.categories || []))].sort(),
+  [...new Set(active.value.flatMap((a) => (a.categories || []).map(artistTypeKey).filter(Boolean)))].sort(),
 );
 
 // 需求5：排序函数
@@ -95,8 +96,8 @@ const filtered = computed(() => {
     (a) =>
       !!a.deleted_at === trash.value &&
       searchArtist(a, query.value) &&
-      (!company.value || a.company === company.value) &&
-      (!category.value || a.categories?.includes(category.value)),
+      (!company.value || normalizeSearch(a.company) === normalizeSearch(company.value)) &&
+      (!category.value || a.categories?.some(v => artistTypeKey(v) === category.value)),
   );
   return sortArtists(result);
 });
@@ -108,7 +109,7 @@ const filteredPairs = computed(() =>
   pairs.value.filter(
     (c) =>
       !!c.deleted_at === trash.value &&
-      c.cp_name.toLowerCase().includes(query.value.toLowerCase()),
+      normalizeSearch(c.cp_name).includes(normalizeSearch(query.value)),
   ),
 );
 const filteredGroups = computed(() =>
@@ -126,18 +127,7 @@ const problems = computed(() => prepared.value.problems);
 // 需求3：CP 配对搜索的候选列表
 const cpArtistCandidates = computed(() => {
   if (!cpSearchQuery.value) return [];
-  return active.value
-    .filter(
-      (a) =>
-        a.name.toLowerCase().includes(cpSearchQuery.value.toLowerCase()) ||
-        (a.en_name || '')
-          .toLowerCase()
-          .includes(cpSearchQuery.value.toLowerCase()) ||
-        (a.aliases || []).some((al) =>
-          al.toLowerCase().includes(cpSearchQuery.value.toLowerCase()),
-        ),
-    )
-    .slice(0, 10);
+  return active.value.filter(a => searchArtist(a, cpSearchQuery.value)).slice(0, 10);
 });
 
 watch([query, company, category, trash, tab], () => {
@@ -503,7 +493,7 @@ onMounted(load);
         </select>
         <select aria-label="类别筛选" v-model="category" class="input-field">
           <option value="">全部类别</option>
-          <option v-for="c in categories" :key="c">{{ c }}</option>
+          <option v-for="c in categories" :key="c" :value="c">{{ artistTypeLabels[c] || c }}</option>
         </select>
       </template>
     </div>
