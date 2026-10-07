@@ -30,7 +30,7 @@ onMounted(load);
   <details><summary>浏览器采集证据导入（待审核）</summary>
    <p>选择已核验的浏览器样本文件，先预览，再保存来源与待审核记录。导入不会启用账号、推进扫描游标或发布活动；重复导入同一来源快照会跳过已有审核。正文摘录会保留摘录标记。</p>
    <label>浏览器样本 JSON<input type="file" accept=".json,application/json" :disabled="busy" @change="readBatch"/></label>
-   <div v-for="r in preview" :key="r.source.url"><a :href="r.source.url" target="_blank" rel="noopener noreferrer">{{r.source.account}} · {{r.source.published_at}}</a><pre>{{r.source.raw_evidence.text}}</pre><p>{{r.source.raw_evidence.capture}}</p><details v-for="image in r.source.raw_evidence.image_transcriptions" :key="image.url"><summary>图片转录</summary><a :href="image.url" target="_blank" rel="noopener noreferrer">原图</a><pre>{{image.text}}</pre></details><p v-for="(note,i) in r.review.evidence.observations" :key="i">{{note}}</p></div>
+   <div v-for="r in preview" :key="r.source.url"><a :href="r.source.url" target="_blank" rel="noopener noreferrer">{{r.source.account}} · {{r.source.published_at}}</a><details><summary>查看原始正文</summary><p>{{r.source.raw_evidence.capture}}</p><pre>{{r.source.raw_evidence.text}}</pre></details><details v-for="image in r.source.raw_evidence.image_transcriptions" :key="image.url"><summary>图片转录</summary><a :href="image.url" target="_blank" rel="noopener noreferrer">原图</a><pre>{{image.text}}</pre></details><p v-for="(note,i) in r.review.evidence.observations" :key="i">{{note}}</p></div>
    <button type="button" :disabled="busy||!batch" @click="importBatch">保存来源并加入待审核</button>
    <p v-for="r in importResults" :key="r.url">{{r.url}} · {{r.action==='review'?'已加入待审核':r.action==='duplicate'?'已有审核，跳过':'保存失败，可重试'}} {{r.error}}</p>
   </details>

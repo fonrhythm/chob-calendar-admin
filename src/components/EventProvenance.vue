@@ -1,6 +1,7 @@
 <script setup>
 import { onMounted, ref } from 'vue';
 import SourceAutomation from './SourceAutomation.vue';
+import ReviewEvidence from './ReviewEvidence.vue';
 import { supabase } from '@/config/supabase';
 import { rpc, allRows } from '@/lib/api';
 const props=defineProps({form:Object, provenance:Object});
@@ -56,7 +57,7 @@ const labels={date:'日期',time:'时间',location:'场地',artist_ids:'艺人',
   <details><summary>艺人与公司关系</summary><label>已选艺人<select v-model="artist"><option value="">选择艺人 ID</option><option v-for="id in form.artist_ids" :key="id">{{id}}</option></select></label><label>角色<select v-model="artistCompanyRole"><option value="agency">agency</option><option value="label">label</option><option value="management">management</option></select></label><button type="button" :disabled="!artist||!company" @click="linkArtist">保存艺人公司关系</button><p v-for="r in artistRelations" :key="r.artist_id+r.company_id+r.role">{{r.artist_id}} · {{companies.find(c=>c.id===r.company_id)?.name}} · {{r.role}}</p></details>
   <details><summary>新增标准实体（人工确认）</summary><label>类型<select v-model="entityKind"><option value="venue">场地</option><option value="company">公司</option></select></label><label>名称<input v-model="entityName"/></label><button type="button" @click="addEntity">新增</button></details>
   <details><summary>变更历史（最近100项）</summary><p v-for="h in history" :key="h.id">{{h.changed_at}} · {{labels[h.field]||h.field}}：{{JSON.stringify(h.old_value)}} → {{JSON.stringify(h.new_value)}} <a v-if="sources.find(x=>x.id===h.source_id)" :href="sources.find(x=>x.id===h.source_id).url" target="_blank" rel="noopener noreferrer">来源</a></p></details>
-  <details><summary>异常审核（待处理）</summary><label>审核结论<textarea v-model="note"/></label><div v-for="r in reviews" :key="r.id"><p>{{r.entity_type}} · {{r.reason}}</p><pre>{{JSON.stringify(r.candidates)}}</pre><p><a v-if="sources.find(s=>s.id===r.source_id)" :href="sources.find(s=>s.id===r.source_id).url" target="_blank" rel="noopener noreferrer">原始来源</a></p><pre>{{r.evidence?.raw?.text||sources.find(s=>s.id===r.source_id)?.raw_evidence?.text}}</pre><pre>{{r.evidence?.translations?.zh}}</pre><pre>{{JSON.stringify(r.evidence?.extraction||r.evidence,null,2)}}</pre><button type="button" @click="prepareReview(r)">编辑后批准（随表单保存）</button><button type="button" @click="prepareReview(r,true)">合并来源到当前活动（随表单保存）</button><button type="button" @click="resolve(r.id,'resolved')">已人工处理</button><button type="button" @click="resolve(r.id,'rejected')">拒绝</button></div></details>
+  <details><summary>异常审核（待处理）</summary><label>审核结论<textarea v-model="note"/></label><div v-for="r in reviews" :key="r.id"><ReviewEvidence :review="r" :source="sources.find(s=>s.id===r.source_id)" :events="events" /><button type="button" @click="prepareReview(r)">编辑后批准（随表单保存）</button><button type="button" @click="prepareReview(r,true)">合并来源到当前活动（随表单保存）</button><button type="button" @click="resolve(r.id,'resolved')">已人工处理</button><button type="button" @click="resolve(r.id,'rejected')">拒绝</button></div></details>
  </details>
 </template>
 <style scoped>
