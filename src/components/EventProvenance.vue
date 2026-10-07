@@ -2,11 +2,13 @@
 import { onMounted, ref } from 'vue';
 import SourceAutomation from './SourceAutomation.vue';
 import ReviewEvidence from './ReviewEvidence.vue';
+import {canonicalLink} from '@/lib/event-link-match.mjs';
 import { supabase } from '@/config/supabase';
 import { rpc, allRows } from '@/lib/api';
 const props=defineProps({form:Object, provenance:Object});
 const sources=ref([]),history=ref([]),venues=ref([]),companies=ref([]),events=ref([]),reviews=ref([]),error=ref(''),busy=ref(false);
 const source=ref({url:'',platform:'',account:'',source_type:'unknown',priority:5,raw_evidence:{}}),evidence=ref(''),entityName=ref(''),entityKind=ref('venue'),company=ref(''),role=ref('organizer');
+const autoSourceMessage=ref('');
 const note=ref(''),artist=ref(''),artistCompanyRole=ref('agency'),relations=ref([]),artistRelations=ref([]);
 props.form.attributes.field_states ||= {};
 async function load(){try{
@@ -15,6 +17,13 @@ async function load(){try{
  for(const response of [h,r,links,cr,ar])if(response.error)throw response.error;
  relations.value=cr.data;artistRelations.value=ar.data;
  history.value=h.data;reviews.value=r.data;const primary=links.data.find(x=>x.is_primary)||links.data[0];if(primary&&!props.provenance.source_id)props.provenance.source_id=primary.source_id;
+ if(!props.provenance.source_id){
+  const existing=new Set([props.form.ticket_url,...(props.form.attributes?.picture_urls||[])].map(canonicalLink).filter(Boolean));
+  const matches=s.filter(item=>[item.url,...(item.raw_evidence?.media||[])].some(url=>existing.has(canonicalLink(url))));
+  if(matches.length===1){props.provenance.source_id=matches[0].id;props.provenance.role='evidence';autoSourceMessage.value='已依据现有票务或图片链接自动选中来源，随活动保存关联；来源核验状态保持原值。';}
+  else if(matches.length>1)autoSourceMessage.value='现有链接对应多个来源快照，请核对后选择。';
+ }
+
  }catch(e){error.value=e.message}}
 onMounted(load);
 async function addSource(){busy.value=true;error.value='';try{if(!evidence.value.trim())throw Error('请粘贴原始公告文字或证据');const id=await rpc('chob_add_source',{payload:{...source.value,raw_evidence:{text:evidence.value}}});props.provenance.source_id=id;await load();evidence.value='';source.value.url=''}catch(e){error.value=e.message}finally{busy.value=false}}
@@ -35,7 +44,7 @@ const labels={date:'日期',time:'时间',location:'场地',artist_ids:'艺人',
 <template>
  <details class="provenance"><summary>来源、变更与实体关系</summary><SourceAutomation @imported="load" />
   <p v-if="error" role="alert">{{error}}</p>
-  <label>本次变更来源<select v-model="provenance.source_id"><option value="">未关联（人工编辑）</option><option v-for="s in sources" :key="s.id" :value="s.id">{{s.account||s.platform}} · {{s.url}} · {{s.verification}}</option></select></label>
+  <p v-if="autoSourceMessage">{{autoSourceMessage}}</p><label>本次变更来源<select v-model="provenance.source_id"><option value="">未关联（人工编辑）</option><option v-for="s in sources" :key="s.id" :value="s.id">{{s.account||s.platform}} · {{s.url}} · {{s.verification}}</option></select></label>
   <label>来源角色<select v-model="provenance.role"><option v-for="r in ['announcement','update','ticketing','correction','evidence']" :key="r">{{r}}</option></select></label>
   <label><input type="checkbox" v-model="provenance.is_primary"/>设为主要来源</label>
   <button type="button" :disabled="!provenance.source_id" @click="verify">确认已核验来源</button>
