@@ -1,0 +1,96 @@
+{
+  "mode": "browser-sample",
+  "range": {
+    "from": "2026-10-01",
+    "through": "2026-10-07",
+    "timezone": "Asia/Shanghai"
+  },
+  "coverage_complete": false,
+  "records": [
+    {
+      "post": {
+        "account": "GMMTV",
+        "id": "2106032707990081744",
+        "url": "https://x.com/GMMTV/status/2106032707990081744",
+        "published_at": "2026-10-02T22:45:00+08:00",
+        "text": "WEIRDO-101 Final EP. Fan Meeting\n#WEIRDO101SeriesEP8\nมาร่วมชมตอนจบของซีรีส์พร้อมสนุกไปกับโชว์สุดพิเศษจากนักแสดง!\nFRIDAY, 16 OCTOBER 2026\nICONSIAM HALL, 7th FLOOR ICONSIAM\nTICKETS FOR ALL SEATS WILL BE AVAILABLE ONLINE ONLY AT ThaiTicketMajor ON 10 OCTOBER 2026 AT 10 AM (Regular ticket sales through all ThaiTicketMajor channels will start on 11 October at 10 AM)"
+      },
+      "text_capture": "Verified visible text excerpt; decorative emoji omitted; not a byte-for-byte export",
+      "extraction": {
+        "facts": {
+          "title": {
+            "state": "known",
+            "value": "WEIRDO-101 Final EP. Fan Meeting",
+            "quote": "WEIRDO-101 Final EP. Fan Meeting"
+          },
+          "location": {
+            "state": "known",
+            "value": "ICONSIAM HALL, 7th FLOOR ICONSIAM",
+            "quote": "ICONSIAM HALL, 7th FLOOR ICONSIAM"
+          }
+        }
+      },
+      "observations": [
+        "活动日期 2026-10-16；英文日期需要受约束的规范化，目前严格引用校验不会接受无原文 ISO 日期。",
+        "演员与活动开始时间尚未核验；不自动发布。",
+        "线上售票 10 月 10 日 10 AM，其他渠道 10 月 11 日 10 AM；未发现售票结束日期，不生成完整售票任务。"
+      ]
+    },
+    {
+      "post": {
+        "account": "DomundiTV",
+        "id": "2107712799363498166",
+        "url": "https://x.com/DomundiTV/status/2107712799363498166",
+        "published_at": "2026-10-07T14:01:00+08:00",
+        "text": "𝐍𝐮𝐍𝐞𝐰 𝟐𝐧𝐝 𝐂𝐨𝐧𝐜𝐞𝐫𝐭 “𝐁𝐨𝐫𝐧 𝐭𝐨 𝐛𝐞 𝐍𝐮𝐍𝐞𝐰 𝐂𝐨𝐧𝐜𝐞𝐫𝐭” 𝟐𝐍𝐃 𝐑𝐎𝐔𝐍𝐃\nStep into NuNew’s world and experience every song, every story, and every moment through the Live Stream Version.\nDAY 1 | 31 OCTOBER 2026\nDAY 2 | 1 NOVEMBER 2026\nIMPACT Arena, Muang Thong Thani\nLive Stream Version\nAvailable Now\n#NuNew2ndConcert\n#NuNew\n@CwrNew\n#domunditv"
+      },
+      "text_capture": "Verified visible text excerpt; not a byte-for-byte export",
+      "extraction": {
+        "facts": {
+          "artist_names": {
+            "state": "known",
+            "value": [
+              "NuNew"
+            ],
+            "quote": "NuNew"
+          }
+        }
+      },
+      "observations": [
+        "销售 Live Stream Version，不能把线下场馆作为直播地点。",
+        "两天分别为 2026-10-31、2026-11-01；未核验直播开始时间与原始售票 URL，不建正式活动。"
+      ]
+    },
+    {
+      "post": {
+        "account": "beoncloud_th",
+        "id": "2107362960075272639",
+        "url": "https://x.com/beoncloud_th/status/2107362960075272639",
+        "published_at": "2026-10-06T14:50:00+08:00",
+        "text": "[อัปเดต]\nตารางงานศิลปิน BeOnCloud\nวันจันทร์ที่ 5 ตุลาคม - วันจันทร์ที่ 12 ตุลาคม 2569\n#BeOnCloud"
+      },
+      "text_capture": "Verified visible text; decorative emoji omitted",
+      "image_transcriptions": [
+        {
+          "url": "https://x.com/beoncloud_th/status/2107362960075272639/photo/1",
+          "verified": true,
+          "text": "FUAIZ\nQP\n08 OCTOBER\n20.30 น. (GMT+7)\nPARC PARAGON, SIAM PARAGON\nBIFW 2026: VVON SUGUNNASIL PRESENTED BY XPENG THAILAND\n(ร่วมชมโชว์)",
+          "capture": "Verified partial transcription; Thai footer participation restrictions kept as review observations, not exact quotes"
+        },
+        {
+          "url": "https://x.com/beoncloud_th/status/2107362960075272639/photo/2",
+          "verified": true,
+          "text": "BIBLE\n09 OCTOBER\n6.00 PM (Singapore Time)\nXAVA, NATIONAL GALLERY SINGAPORE\nMOËT CLUB CELEBRATE THE EMOTION OF F1\nPrivate Event • Fan zone in front of the Gallery"
+        }
+      ],
+      "extraction": {
+        "facts": {}
+      },
+      "observations": [
+        "第一张：2026-10-08 20:30，泰国时间；FUAIZ、QP 参加时装秀；可围观、不收礼物，需核验现有艺人和活动字典。",
+        "第二张：2026-10-09 18:00，新加坡时间；BIBLE；私人主活动与外部粉丝区域分别处理，不能把粉丝区域解释为主活动开放。",
+        "一帖含两个不同活动，现有单活动提取接口须拆分审核；本次保留整帖和两张图证据，未发布。"
+      ]
+    }
+  ]
+}

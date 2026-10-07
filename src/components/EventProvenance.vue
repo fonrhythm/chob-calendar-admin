@@ -32,7 +32,7 @@ function prepareReview(r,merge=false){
 const labels={date:'日期',time:'时间',location:'场地',artist_ids:'艺人',ticket_url:'票务'};
 </script>
 <template>
- <details class="provenance"><summary>来源、变更与实体关系</summary><SourceAutomation />
+ <details class="provenance"><summary>来源、变更与实体关系</summary><SourceAutomation @imported="load" />
   <p v-if="error" role="alert">{{error}}</p>
   <label>本次变更来源<select v-model="provenance.source_id"><option value="">未关联（人工编辑）</option><option v-for="s in sources" :key="s.id" :value="s.id">{{s.account||s.platform}} · {{s.url}} · {{s.verification}}</option></select></label>
   <label>来源角色<select v-model="provenance.role"><option v-for="r in ['announcement','update','ticketing','correction','evidence']" :key="r">{{r}}</option></select></label>
