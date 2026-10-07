@@ -21,15 +21,16 @@ export const eventArtistNames = (event, artists) =>
 export function validateEvent(event, tasks = []) {
   if (!event.title?.trim()) return '请填写活动名称。';
   if (
-    !event.date ||
-    !/^\d{4}-\d{2}-\d{2}$/.test(event.date) ||
+    (!event.date && !['tba','missing'].includes(event.attributes?.field_states?.date)) ||
+    (event.date && (!/^\d{4}-\d{2}-\d{2}$/.test(event.date) ||
     Number.isNaN(Date.parse(event.date)) ||
-    new Date(event.date).toISOString().slice(0, 10) !== event.date
+    new Date(event.date).toISOString().slice(0, 10) !== event.date))
   )
     return '请填写有效的活动日期。';
   const end = event.attributes?.end_date;
   if (end && (!/^\d{4}-\d{2}-\d{2}$/.test(end) || Number.isNaN(Date.parse(end)) || new Date(end).toISOString().slice(0,10) !== end || end < event.date)) return '结束日期必须有效，且不能早于开始日期。';
-  if (!event.location?.trim()) return '请填写场地；线上活动可填写直播平台。';
+  if (event.status === 'published' && !event.date && event.attributes?.field_states?.date !== 'tba') return '缺失日期只能存草稿。';
+  if (!event.location?.trim() && !['tba','missing'].includes(event.attributes?.field_states?.location)) return '请填写场地；线上活动可填写直播平台。';
   if (
     event.status === 'published' &&
     event.attributes?.unmatched_import_names?.length
@@ -37,6 +38,7 @@ export function validateEvent(event, tasks = []) {
     return '请先完成待匹配艺人，再发布。';
   if (
     !event.artist_ids?.length &&
+    !(event.attributes?.field_states?.artist_ids === "tba" || (event.status === "draft" && event.attributes?.field_states?.artist_ids === "missing")) &&
     !(
       event.status === 'draft' &&
       event.attributes?.unmatched_import_names?.length

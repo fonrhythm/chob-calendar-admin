@@ -37,13 +37,13 @@ export function newEvent() {
     updated_at: null,
   };
 }
-export async function saveEventWithTasks(event, tasks, notice = null) {
+export async function saveEventWithTasks(event, tasks, notice = null, provenance = null) {
   const problem = validateEvent(event, tasks);
   if (problem) throw new Error(problem);
   const { data, error } = await supabase.rpc(
-    notice ? 'chob_save_event_with_notice' : 'chob_save_event_bundle_v2',
+    provenance?.review_id ? 'chob_apply_automation_review' : provenance ? 'chob_save_event_architecture' : notice ? 'chob_save_event_with_notice' : 'chob_save_event_bundle_v2',
     {
-      ...(notice ? { notice_payload: notice } : {}),
+      ...(provenance?.review_id ? {target:provenance.review_id,note:provenance.review_note} : provenance ? {provenance,notice_payload:notice} : notice ? { notice_payload: notice } : {}),
       payload: event,
       task_payload: tasks,
       expected_updated_at: event.updated_at || null,
@@ -52,7 +52,7 @@ export async function saveEventWithTasks(event, tasks, notice = null) {
   if (error) {
     if (error.code === 'PGRST202')
       throw new Error(
-        '请先在 Supabase 执行 015_scheduling_import_drafts.sql，再重新保存。',
+        provenance?.review_id ? '请先执行 035_automation.sql。' : provenance ? '请先执行 034_provenance_entities.sql。' : '请先在 Supabase 执行 015_scheduling_import_drafts.sql，再重新保存。',
       );
     throw new Error(error.message);
   }

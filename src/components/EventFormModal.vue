@@ -1,4 +1,5 @@
 <script setup>
+import EventProvenance from "./EventProvenance.vue";
 import { publishTimestamp, localDateTime } from '../lib/publishing';
 import CatalogPicker from './CatalogPicker.vue';
 import ArtistMatchPicker from './ArtistMatchPicker.vue';
@@ -19,6 +20,7 @@ const props = defineProps({
   pairs: { type: Array, default: () => [] },
 });
 const emit = defineEmits(['close', 'saved']);
+const provenance = ref({source_id:"",role:"announcement",is_primary:false});
 const dialog = ref(null),
   previous = document.activeElement;
 const form = ref(
@@ -31,6 +33,7 @@ const form = ref(
     : newEvent(),
 );
 form.value.attributes = { ...(form.value.attributes || {}) };
+form.value.attributes.field_states ||= {};
 const regionAliases = { thailand: '泰国', thai: '泰国', china: '中国', oversea: '海外', overseas: '海外', '其他国家或地区': '海外', '泰国': '泰国', '中国': '中国', '海外': '海外' };
 form.value.attributes.region = regionAliases[String(form.value.attributes.region || '').toLowerCase()] || '';
 const multiDay = ref(!!form.value.attributes.end_date && form.value.attributes.end_date > form.value.date);
@@ -222,6 +225,7 @@ async function save(status) {
             source_url: noticeSource.value,
           }
         : null,
+      provenance.value,
     );
     emit('saved');
   } catch (e) {
@@ -348,7 +352,7 @@ onUnmounted(() => {
               v-model="form.date"
               aria-label="活动日期"
               type="date"
-              required
+              :required="!['tba','missing'].includes(form.attributes.field_states?.date)"
           /></label>
           <label class="multiday-toggle"><input type="checkbox" v-model="multiDay" />连续多日活动</label>
           <label v-if="multiDay" class="field">结束日期 <b>*</b><input v-model="form.attributes.end_date" type="date" :min="form.date" required aria-label="活动结束日期" /><small>每天显示同一场活动，共用下方开票等参与事项；删除整场活动时一起移除。</small></label>
@@ -385,7 +389,7 @@ onUnmounted(() => {
             ><input
               v-model="form.location"
               aria-label="场地"
-              required
+              :required="!['tba','missing'].includes(form.attributes.field_states?.location)"
               maxlength="200"
               placeholder="填写场地；线上活动填写直播平台"
           /></label>
@@ -586,6 +590,7 @@ onUnmounted(() => {
         </fieldset>
       </div>
       <div v-if="error" role="alert" class="form-problem">{{ error }}</div>
+      <EventProvenance :form="form" :provenance="provenance" />
       <div class="publish-options">
         <label
           ><input

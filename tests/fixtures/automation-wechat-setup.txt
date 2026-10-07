@@ -1,0 +1,7 @@
+await db.exec(`create role service_role;create schema chob_private;create table chob_private.migrations(version text primary key);create table auth.users(id uuid primary key,email_confirmed_at timestamptz);insert into auth.users values('${fan}',now());
+ create table public.cp_pairs(id uuid primary key,cp_name text,artist_1_id uuid,artist_2_id uuid,deleted_at timestamptz);
+ alter table public.users add column email text,add column updated_at timestamptz;alter table artists add column name text,add column en_name text,add column group_member_ids uuid[] default '{}',add column company text,add column categories text[],add column group_kind text,add column deleted_at timestamptz;
+ create function chob_private.active_member() returns boolean language sql security definer set search_path='' as $$select exists(select 1 from public.users where id=auth.uid() and is_active and email_verified)$$;
+ create function chob_private.is_admin() returns boolean language sql security definer set search_path='' as $$select exists(select 1 from public.users where id=auth.uid() and role='admin' and is_active and email_verified)$$;
+ create function chob_private.require_admin() returns void language plpgsql security definer set search_path='' as $$begin if not chob_private.is_admin() then raise exception 'admin only';end if;end$$;
+ grant usage on schema chob_private to authenticated;insert into users(id,role,is_active,email_verified,email) values('${other}','collaborator_fan',true,true,'other@example.invalid');`);
