@@ -65,17 +65,18 @@ async function runAction(ids, operation) {
   } catch (e) { error.value = e.message; }
   finally { actionBusy.value = false; }
 }
-async function mergePair(pair, keepId) {
+const pendingMerge = ref(null);
+async function mergePair(pair, keepId, confirmed = false) {
   if (actionBusy.value || pair.events.length !== 2) return;
   const keep = pair.events.find(e => e.id === keepId);
   if (!keep || pair.events.some(e => e.date !== keep.date || (e.attributes?.end_date || e.date) !== (keep.attributes?.end_date || keep.date))) {
     error.value = '不同日期或场次请分别保留。'; return;
   }
-  if (!window.confirm('确认这两条是同一活动，并已在保留活动中核对完整阵容与信息？\n保留：' + keep.title + '\n另一条将撤回，收藏、事项和来源将关联到保留活动。')) return;
+  if (!confirmed) { pendingMerge.value = {pair, keepId}; return; }
   actionBusy.value = true; error.value = '';
   try {
     await rpc('chob_review_duplicates', {record_ids: pair.events.map(e => e.id), keep_id: keepId, decision: 'merge'});
-    selected.value = []; notice.value = '已合并同一活动，收藏、事项和来源关系已保留。'; await load();
+    pendingMerge.value = null; selected.value = []; notice.value = '已合并同一活动，收藏、事项和来源关系已保留。'; await load();
   } catch (e) { error.value = e.message; }
   finally { actionBusy.value = false; }
 }
@@ -344,6 +345,13 @@ onMounted(load);
                 <button class="btn-ghost" :disabled="actionBusy" @click="mergePair(pair, event.id)">合并并保留此活动</button>
                 <button class="btn-ghost text-red-700" :disabled="actionBusy" @click="runAction([event.id], 'delete')">删除</button>
               </div>
+            </div>
+            <div v-if="pendingMerge?.pair.key === pair.key" class="border rounded-lg p-3 mt-3">
+              <p>确认这两条为同一活动，并已核对保留记录的完整阵容和信息。</p>
+              <p>保留：{{ pair.events.find(e => e.id === pendingMerge.keepId)?.title }}</p>
+              <p>另一条将撤回，收藏、事项和来源将关联到保留活动。</p>
+              <button class="btn-secondary" :disabled="actionBusy" @click="mergePair(pair, pendingMerge.keepId, true)">确认合并</button>
+              <button class="btn-ghost" :disabled="actionBusy" @click="pendingMerge = null">取消合并</button>
             </div>
           </article>
           <p v-if="!similarPairs.length" class="text-gray-500">暂无达到 80% 的相似活动。</p>
