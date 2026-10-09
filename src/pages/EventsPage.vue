@@ -65,6 +65,20 @@ async function runAction(ids, operation) {
   } catch (e) { error.value = e.message; }
   finally { actionBusy.value = false; }
 }
+async function mergePair(pair, keepId) {
+  if (actionBusy.value || pair.events.length !== 2) return;
+  const keep = pair.events.find(e => e.id === keepId);
+  if (!keep || pair.events.some(e => e.date !== keep.date || (e.attributes?.end_date || e.date) !== (keep.attributes?.end_date || keep.date))) {
+    error.value = '不同日期或场次请分别保留。'; return;
+  }
+  if (!window.confirm('确认这两条是同一活动，并已在保留活动中核对完整阵容与信息？\n保留：' + keep.title + '\n另一条将撤回，收藏、事项和来源将关联到保留活动。')) return;
+  actionBusy.value = true; error.value = '';
+  try {
+    await rpc('chob_review_duplicates', {record_ids: pair.events.map(e => e.id), keep_id: keepId, decision: 'merge'});
+    selected.value = []; notice.value = '已合并同一活动，收藏、事项和来源关系已保留。'; await load();
+  } catch (e) { error.value = e.message; }
+  finally { actionBusy.value = false; }
+}
 const companies = computed(() =>
   [
     ...new Set(workspace.value.events.map((e) => e.company).filter(Boolean)),
@@ -327,6 +341,7 @@ onMounted(load);
                 <p>{{ eventArtistNames(event, workspace.artists) || '未关联艺人' }}</p>
                 <p class="text-sm text-gray-500">{{ event.date }}<span v-if="event.attributes?.end_date"> — {{ event.attributes.end_date }}</span> · {{ event.time || '时间待定' }} · {{ event.location || '场地待定' }} · {{ EVENT_STATUSES[event.status] || event.status }}</p>
                 <button class="btn-ghost" @click="edit(event)">编辑</button>
+                <button class="btn-ghost" :disabled="actionBusy" @click="mergePair(pair, event.id)">合并并保留此活动</button>
                 <button class="btn-ghost text-red-700" :disabled="actionBusy" @click="runAction([event.id], 'delete')">删除</button>
               </div>
             </div>

@@ -53,7 +53,7 @@ const labels={date:'日期',time:'时间',location:'场地',artist_ids:'艺人',
    <label>平台<input v-model="source.platform"/></label><label>账号<input v-model="source.account"/></label>
    <label>来源类型<select v-model="source.source_type"><option v-for="t in ['unknown','organizer','brand','event_official','company_official','artist_official','official_fc','ticketing','media','fan']" :key="t">{{t}}</option></select></label>
    <label>优先级（人工确认）<select v-model.number="source.priority"><option :value="1">官方主办／品牌／活动方</option><option :value="2">公司／艺人官方</option><option :value="3">官方 FC</option><option :value="4">可靠票务／媒体</option><option :value="5">普通粉丝／未知</option></select></label>
-   <label>发布时间<input v-model="source.published_at" type="datetime-local"/></label>
+   <label>发布时间<input v-model="source.published_at" type="datetime-local" step="1"/></label>
    <label>原始证据<textarea v-model="evidence" rows="4"/></label><button type="button" :disabled="busy" @click="addSource">保存来源</button>
   </details>
   <label v-for="(label,field) in labels" :key="field">{{label}}信息状态<select v-model="form.attributes.field_states[field]"><option value="">沿用已有数据</option><option value="known">已知</option><option value="tba">官方尚未公布（需来源）</option><option value="missing">Chob 缺数据</option></select></label>
