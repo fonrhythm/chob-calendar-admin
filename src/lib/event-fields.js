@@ -76,7 +76,7 @@ export function filterSortEvents(events, artists, types, filters) {
   } = filters;
   const list = events.filter(
     (e) =>
-      (!status || (status === 'past' ? e.date < bangkokDate() : e.status === status)) &&
+      (!status || (status === 'past' ? Boolean(e.date) && e.date < bangkokDate() : e.status === status)) &&
       (!company || normalizeSearch(e.company) === normalizeSearch(company)) &&
       (!type ||
         e.event_type_id === type ||
@@ -91,10 +91,16 @@ export function filterSortEvents(events, artists, types, filters) {
   if (sort === 'today-first') {
     const today = bangkokDate();
     return list.sort((a, b) => {
-      const aPast = a.date < today;
-      const bPast = b.date < today;
+      const aDate = String(a.date || '');
+      const bDate = String(b.date || '');
+      if (!aDate || !bDate) {
+        if (Boolean(aDate) !== Boolean(bDate)) return aDate ? -1 : 1;
+        return String(a.id).localeCompare(String(b.id));
+      }
+      const aPast = aDate < today;
+      const bPast = bDate < today;
       if (aPast !== bPast) return aPast ? 1 : -1;
-      return aPast ? b.date.localeCompare(a.date) : a.date.localeCompare(b.date);
+      return aPast ? bDate.localeCompare(aDate) : aDate.localeCompare(bDate);
     });
   }
   const [field, direction] = sort.split('-'),
@@ -105,7 +111,7 @@ export function filterSortEvents(events, artists, types, filters) {
       : field === 'type'
         ? recordLabel(types.find((t) => t.id === e.event_type_id))
         : field === 'date'
-          ? `${e.date || ''} ${e.time || ''}`
+          ? e.date ? `${e.date} ${e.time || ''}` : ''
           : e[field] || '';
   return list.sort((a, b) => {
     const av = key(a).trim(),
