@@ -403,7 +403,7 @@ watch(() => route.name, (name) => {
           <button class="btn-secondary ml-2" :disabled="busy" @click="setNoticeVisibility([n.id], !n.published)">{{ n.published ? '从前台隐藏' : '恢复公开' }}</button>
           <button class="btn-secondary ml-2 text-red-700" :disabled="busy" @click="deleteNotices([n.id])">删除</button>
           <button
-            v-if="n.event_id && /延期/.test(n.title + n.body) && events.find((e) => e.id === n.event_id)?.attributes?.event_status !== 'postponed'"
+            v-if="n.event_id && /延期/.test(n.title + n.body) && !events.find((e) => e.id === n.event_id)?.attributes?.original_date && events.find((e) => e.id === n.event_id)?.attributes?.event_status !== 'postponed'"
             class="btn-secondary ml-2"
             :disabled="busy"
             @click="perform(() => rpc('chob_set_postponement', { target: n.event_id, new_date: null, notify_users: false, source_url: n.source_url }))"

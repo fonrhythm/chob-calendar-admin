@@ -86,10 +86,10 @@ const initial = JSON.stringify([
   timeText.value,
   selectedEntities.value,
 ]);
-const newDate = ref(form.value.attributes.postponed_to_date || ''),
-  datePending = ref(!form.value.attributes.postponed_to_date),
+const newDate = ref(form.value.attributes.postponed_to_date || (form.value.attributes.original_date && form.value.attributes.event_status !== 'postponed' ? form.value.date : '')),
+  datePending = ref(!newDate.value),
   notifyUsers = ref(false),
-  sourceUrl = ref(''),
+  sourceUrl = ref(form.value.attributes.postponement_source_url || ''),
   publishNotice = ref(false),
   noticeBody = ref(''),
   noticeSource = ref('');
@@ -126,7 +126,7 @@ const artistTypes = computed(() => [
 const regions = ['泰国', '中国', '海外'];
 async function postpone() {
   if (!props.event || busy.value) return;
-  if (!window.confirm(datePending.value ? '将原活动标记为延期，日期另行通知？' : '保留原日期的延期记录，并创建或更新关联的新日期活动？')) return;
+  if (!window.confirm(datePending.value ? '将这场活动标记为延期，日期另行通知？' : `将这场活动更新到 ${newDate.value}？沿用原活动和关联记录，不新增活动。`)) return;
   busy.value = true;
   error.value = '';
   try {
@@ -320,7 +320,7 @@ onUnmounted(() => {
           <section v-if="event" class="task-panel">
             <h3>活动延期</h3>
             <p class="section-help">
-              将关联原记录与新记录，已收藏和已添加的个人事项会跟随新日期。请先保存其他字段修改，再操作延期。
+              更新这场活动的原记录，收藏和个人事项保持关联；新日期公布时同步更新已有延期公告。请先保存其他字段修改，再操作延期。
             </p>
             <input
               v-model="newDate"
@@ -333,9 +333,9 @@ onUnmounted(() => {
                 type="checkbox"
               />同时发布延期公告</label
             ><input
-              v-if="notifyUsers"
-              v-model="sourceUrl"
-              type="url"
+                v-model="sourceUrl"
+                type="url"
+                aria-label="延期消息来源"
               placeholder="消息来源 https://..."
             /><button
               type="button"
