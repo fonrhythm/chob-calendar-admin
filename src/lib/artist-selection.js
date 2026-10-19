@@ -7,6 +7,7 @@ export const artistType = (value) =>
     cp: 'CP',
     group: '组合',
     组合: '组合',
+    ensemble: '组合',
     band: '乐队',
     乐队: '乐队',
     bl: 'BL',

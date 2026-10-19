@@ -1,5 +1,5 @@
 <script setup>
-import { artistTypeKey, artistTypeLabels, normalizeSearch } from '@/lib/artistFilters';
+import { artistTypeKey, artistTypeKeys, artistTypeLabels, normalizeSearch } from '@/lib/artistFilters';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useAuthStore } from '@/stores/authStore';
 import { allRows, rpc } from '@/lib/api';
@@ -58,7 +58,7 @@ const companies = computed(() =>
   [...new Set(active.value.map((a) => a.company).filter(Boolean))].sort(),
 );
 const categories = computed(() =>
-  [...new Set(active.value.flatMap((a) => (a.categories || []).map(artistTypeKey).filter(Boolean)))].sort(),
+  [...new Set(['ensemble',...active.value.flatMap(artistTypeKeys)])].sort(),
 );
 
 // 需求5：排序函数
@@ -97,7 +97,7 @@ const filtered = computed(() => {
       !!a.deleted_at === trash.value &&
       searchArtist(a, query.value) &&
       (!company.value || normalizeSearch(a.company) === normalizeSearch(company.value)) &&
-      (!category.value || a.categories?.some(v => artistTypeKey(v) === category.value)),
+      (!category.value || artistTypeKeys(a).includes(category.value)),
   );
   return sortArtists(result);
 });
