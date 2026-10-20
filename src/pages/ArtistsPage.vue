@@ -13,7 +13,7 @@ import { importSpecs, catalogTemplate, parseCatalogRows, prepareCatalogRows } fr
 import ModalShell from '@/components/common/ModalShell.vue';
 import ArtistMultiSelect from '@/components/ArtistMultiSelect.vue';
 import { groupSaveError } from '@/lib/rpc-errors';
-import { groupRows, isGroup } from '@/lib/groups';
+import { groupRows, isGroup, groupCategory } from '@/lib/groups';
 
 const auth = useAuthStore(),
   admin = computed(() => auth.userProfile?.role === 'admin');
@@ -58,7 +58,7 @@ const companies = computed(() =>
   [...new Set(active.value.map((a) => a.company).filter(Boolean))].sort(),
 );
 const categories = computed(() =>
-  [...new Set(['ensemble',...active.value.flatMap(artistTypeKeys)])].sort(),
+  [...new Set(['idol','group',...active.value.flatMap(artistTypeKeys)])].sort(),
 );
 
 // 需求5：排序函数
@@ -244,7 +244,7 @@ function saveGroup() {
   return action(async () => {
     try {
       return await rpc('chob_save_group_v2', {
-        payload: form.value,
+        payload: { ...form.value, artist_category: groupCategory(form.value.type) },
         record_id: editing.value?.id || null,
         expected_updated_at: editing.value?.updated_at || null,
       });
@@ -855,9 +855,10 @@ onMounted(load);
         <label class="block"
           >艺人类别（多个用分号隔开）<input
             v-model="form.categories"
-            placeholder="歌手;演员;BL演员"
+            placeholder="IDOL;SINGER;ACTOR"
             class="input-field mt-1"
         /></label>
+        <p class="text-sm text-gray-500">IDOL＝男女团（唱跳偶像）；GROUP＝音乐组合；BAND＝乐队。</p>
         <label class="block"
           >别名（多个用分号隔开）<input
             v-model="form.aliases"
@@ -945,6 +946,7 @@ onMounted(load);
             aria-label="组合类型"
             class="input-field mt-1"
           >
+            <option>男女团</option>
             <option>组合</option>
             <option>乐队</option>
           </select></label
@@ -979,7 +981,7 @@ onMounted(load);
           条{{ importSpec.label }}资料。Excel读取第一个工作表。可在下方更正；全部通过检查后才能导入。
         </p>
         <p v-if="importKind !== 'artists'" class="text-sm text-gray-500">
-          艺人填写已有个人艺人的名称、显示名称或ID；重名时请填写ID。成员、别名用分号分隔。组合/乐队成员可留空，类型填写“组合”或“乐队”。
+          艺人填写已有个人艺人的名称、显示名称或ID；重名时请填写ID。成员、别名用分号分隔。组合/乐队成员可留空，类型填写“男女团”（IDOL）、“组合”（GROUP）或“乐队”（BAND）。
         </p>
         <div
           v-for="(r, i) in preview"

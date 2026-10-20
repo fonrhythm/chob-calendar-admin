@@ -225,3 +225,9 @@ test('组合保存、编辑、回收站、成员保护及权限', async () => {
     await db.close();
   }
 });
+
+
+test('group structure preserves IDOL and music GROUP labels', () => {
+ const rows=groupRows([{id:'idol',group_kind:'group',categories:['IDOL']},{id:'music',group_kind:'group',categories:['GROUP']}]);
+ assert.deepEqual(rows.map(a=>a.type),['男女团','组合']);
+});

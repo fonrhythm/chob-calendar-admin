@@ -1,3 +1,5 @@
+import { selectedArtistTypeKeys } from './artistFilters.js';
+
 export const artistType = (value) =>
   ({
     actor: '演员',
@@ -5,6 +7,9 @@ export const artistType = (value) =>
     singer: '歌手',
     歌手: '歌手',
     cp: 'CP',
+    idol: '男女团',
+    男女团: '男女团',
+    goup: '男女团',
     group: '组合',
     组合: '组合',
     ensemble: '组合',
@@ -12,6 +17,7 @@ export const artistType = (value) =>
     乐队: '乐队',
     bl: 'BL',
     gl: 'GL',
+    music: '音乐',
     other: '其他',
   })[
     String(value || '')
@@ -23,13 +29,9 @@ export const artistTypes = (values) => [
 ];
 export const selectionTypes = (catalog, ids) => {
   const selected = catalog.filter((a) => ids.includes(a.id));
-  const members = new Set(
-    selected.flatMap((a) => a.member_ids || a.group_member_ids || []),
-  );
   return artistTypes(
-    [...selected, ...catalog.filter((a) => members.has(a.id))].flatMap((a) =>
-      [...(a.categories || []), a.group_kind].filter(Boolean),
-    ),
+    [...selectedArtistTypeKeys(catalog, ids), ...selected.flatMap(a =>
+      (a.categories || []).filter(value => String(value).toLowerCase() === 'cp'))],
   );
 };
 export const selectionCompanies = (catalog, ids) => {
@@ -50,3 +52,4 @@ export const selectionCount = (item) =>
               ? item.artist_names
               : [item.name],
         ).size;
+

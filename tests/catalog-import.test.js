@@ -26,8 +26,14 @@ test('group imports preserve kind, optional members and display fields', () => {
   const rows = parseCatalogRows(parseCsv(catalogTemplate('group') + 'Team,乐队,Display,Company,A;Bob,Alias\nEmpty,组合,,,,\n'), 'group');
   const result = prepareCatalogRows(rows,'group',artists,[]);
   assert.deepEqual(result.problems, ['', '']);
-  assert.deepEqual(result.rows[0],{name:'Team',type:'乐队',en_name:'Display',company:'Company',members:['a','b'],aliases:['Alias']});
+  assert.deepEqual(result.rows[0],{name:'Team',type:'乐队',artist_category:'BAND',en_name:'Display',company:'Company',members:['a','b'],aliases:['Alias']});
   assert.deepEqual(result.rows[1].members, []);
   assert.ok(prepareCatalogRows([{name:'Bad',type:'音乐',members:''}],'group',artists,[]).problems[0]);
   assert.ok(prepareCatalogRows([{name:'Bad',type:'组合',members:'Missing'}],'group',artists,[]).problems[0]);
+});
+
+
+test('IDOL imports stay distinct from music GROUP', () => {
+ const result=prepareCatalogRows([{name:'Dance Team',type:'IDOL',members:''},{name:'LANDOKMAI',type:'GROUP',members:''}], 'group',artists,[]);
+ assert.deepEqual(result.problems,['','']);assert.equal(result.rows[0].type,'男女团');assert.equal(result.rows[0].artist_category,'IDOL');assert.equal(result.rows[1].artist_category,'GROUP');
 });

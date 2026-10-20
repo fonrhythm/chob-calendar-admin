@@ -1,5 +1,5 @@
 import { artistPayload, normalize, rowsToArtists, splitValues, validateImport } from './artists.js';
-import { isGroup } from './groups.js';
+import { isGroup, groupCategory } from './groups.js';
 
 export const importSpecs = {
   artists: { label: '艺人', fields: { name: '艺人名称', full_name: '泰语名', en_name: '显示名称', company: '公司', categories: '类别', aliases: '别名' } },
@@ -57,11 +57,11 @@ export function prepareCatalogRows(preview, kind, artists, pairs) {
         seenMembers.add(key);
         payload = { cp_name: name, artist_1_id: a, artist_2_id: b };
       } else {
-        const type = { group: '组合', band: '乐队', 组合: '组合', 乐队: '乐队' }[normalize(r.type)];
-        if (!type) throw new Error('类型请填写“组合”或“乐队”');
+        const type = { idol: '男女团', group: '组合', band: '乐队', 男女团: '男女团', 组合: '组合', 乐队: '乐队' }[normalize(r.type)];
+        if (!type) throw new Error('类型请填写“男女团”（IDOL）、“组合”（GROUP）或“乐队”（BAND）');
         const members = [...new Set(splitValues(r.members).map(v => resolveMember(v, artists)))];
         if (members.length > 200) throw new Error('成员最多200位');
-        payload = { name, type, members, en_name: String(r.en_name || '').trim(), company: String(r.company || '').trim(), aliases: splitValues(r.aliases) };
+        payload = { name, type, artist_category: groupCategory(type), members, en_name: String(r.en_name || '').trim(), company: String(r.company || '').trim(), aliases: splitValues(r.aliases) };
       }
       rows.push(payload); problems.push('');
     } catch (e) { rows.push(null); problems.push(e.message); }
