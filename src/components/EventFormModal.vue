@@ -1,5 +1,6 @@
 <script setup>
 import EventProvenance from "./EventProvenance.vue";
+import RichTextEditor from './RichTextEditor.vue';
 import { publishTimestamp, localDateTime } from '../lib/publishing';
 import CatalogPicker from './CatalogPicker.vue';
 import ArtistMatchPicker from './ArtistMatchPicker.vue';
@@ -21,6 +22,7 @@ const props = defineProps({
 });
 const emit = defineEmits(['close', 'saved']);
 const provenance = ref({source_id:"",role:"announcement",is_primary:false});
+const noteEditor = ref(null), descriptionEditor = ref(null);
 const dialog = ref(null),
   previous = document.activeElement;
 const form = ref(
@@ -33,6 +35,7 @@ const form = ref(
     : newEvent(),
 );
 form.value.attributes = { ...(form.value.attributes || {}) };
+form.value.attributes.rich_text = { ...(form.value.attributes.rich_text || {}) };
 form.value.attributes.field_states ||= {};
 const regionAliases = { thailand: '泰国', thai: '泰国', china: '中国', oversea: '海外', overseas: '海外', '其他国家或地区': '海外', '泰国': '泰国', '中国': '中国', '海外': '海外' };
 form.value.attributes.region = regionAliases[String(form.value.attributes.region || '').toLowerCase()] || '';
@@ -169,6 +172,10 @@ const unresolved = ref(form.value.attributes.unmatched_import_names || []),
   resolutions = ref({});
 async function save(status) {
   if (busy.value) return;
+  if (noteEditor.value?.flush() === false || descriptionEditor.value?.flush() === false) {
+    error.value = '请检查备注和活动详情中的内容，再保存。';
+    return;
+  }
   if (multiDay.value && !form.value.attributes.end_date) { error.value = '请选择多日活动的结束日期。'; return; }
   tried.value = true;
   busy.value = true;
@@ -430,21 +437,14 @@ onUnmounted(() => {
               </div>
             </div>
           </div>
-          <label class="field"
-            >备注<textarea
-              v-model="form.attributes.note"
-              aria-label="备注"
-              rows="3"
-            ></textarea>
-          </label>
-          <label class="field"
-            >活动详情与参与规则<textarea
-              v-model="form.description"
-              aria-label="活动详情与参与规则"
-              rows="4"
-              placeholder="填写名额、消费计算、参与资格、官方说明等。"
-            ></textarea>
-          </label>
+          <div class="field">
+            <span>备注</span>
+            <RichTextEditor ref="noteEditor" v-model="form.attributes.rich_text.note" v-model:plain-text="form.attributes.note" label="备注" :disabled="busy" :reset-key="form.id" placeholder="填写活动备注" />
+          </div>
+          <div class="field">
+            <span>活动详情与参与规则</span>
+            <RichTextEditor ref="descriptionEditor" v-model="form.attributes.rich_text.description" v-model:plain-text="form.description" label="活动详情与参与规则" :disabled="busy" :reset-key="form.id" placeholder="填写名额、消费计算、参与资格、官方说明等。" />
+          </div>
           <label class="field"
             >活动链接（购票或原文）<input
               v-model="form.ticket_url"
