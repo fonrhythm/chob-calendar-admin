@@ -1,3 +1,4 @@
+import { taskCompletion } from './taskCompletion.js';
 export const TASK_TYPES = [
   { value: 'shopping', label: '消费' },
   { value: 'registration', label: '填表' },
@@ -32,9 +33,9 @@ export function bangkokDate(now = new Date()) {
     day: '2-digit',
   }).format(now);
 }
-export function taskActiveOn(task, date) {
+export function taskActiveOn(task, date, parent = null, now = Date.now()) {
   return (
-    task.status === 'published' && !task.is_closed &&
+    task.status === 'published' && !taskCompletion(task, parent, now).closed &&
     !!task.start_date &&
     (!!task.end_date || task.task_type === 'ticketing') &&
     task.start_date <= date &&
@@ -64,6 +65,7 @@ export function newTask() {
     end_date: '',
     end_time: '',
     is_closed: false,
+    closure_reason: '',
     result_url: '',
     action_url: '',
     description: '',
@@ -81,6 +83,7 @@ export function safeWebUrl(value) {
 export function validateTasks(tasks) {
   for (const [i, task] of tasks.entries()) {
     const prefix = `事项 ${i + 1}：`;
+    if (task.closure_reason && !['sold_out', 'results_published', 'ended'].includes(task.closure_reason)) return prefix + '结束状态无效。';
     if (!task.title?.trim()) return prefix + '请填写标题。';
     if (
       ![

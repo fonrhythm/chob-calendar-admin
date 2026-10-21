@@ -16,10 +16,11 @@ test('事项日期包含首尾；曼谷日期不受电脑时区影响；分类�
     start_date: '2026-10-01',
     end_date: '2026-10-25',
   };
-  assert.equal(taskActiveOn(t, '2026-10-01'), true);
-  assert.equal(taskActiveOn(t, '2026-10-25'), true);
-  assert.equal(taskActiveOn(t, '2026-10-26'), false);
-  assert.equal(taskActiveOn({ ...t, status: 'draft' }, '2026-10-01'), false);
+  const now = Date.parse('2026-10-01T00:00:00Z');
+  assert.equal(taskActiveOn(t, '2026-10-01', null, now), true);
+  assert.equal(taskActiveOn(t, '2026-10-25', null, now), true);
+  assert.equal(taskActiveOn(t, '2026-10-26', null, now), false);
+  assert.equal(taskActiveOn({ ...t, status: 'draft' }, '2026-10-01', null, now), false);
   const ordered = [
     'notification',
     'shopping',

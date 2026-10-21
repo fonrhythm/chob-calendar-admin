@@ -4,7 +4,10 @@ import { supabase } from '@/config/supabase';
 import { allRows, rpc } from '@/lib/api';
 import { findSimilarEvents } from '@/lib/event-similarity';
 import { ACTIVITY_TYPES } from '@/lib/activity-types';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import TaskCompletionControl from '@/components/TaskCompletionControl.vue';
+import { taskCompletion, completionLabel } from '@/lib/taskCompletion.js';
+import { completionValue, completionRequest } from '@/lib/task-completion-actions.js';
 import { useRoute, useRouter } from 'vue-router';
 import { loadEventWorkspace, EVENT_STATUSES, manageEvents } from '@/lib/events';
 import {
@@ -100,6 +103,8 @@ const search = ref(''),
   taskType = ref(''),
   date = ref(bangkokDate());
 const isTasks = computed(() => route.name === 'Tasks');
+const taskList = ref('pending'), completionBusy = ref(''), currentTime = ref(Date.now());
+let completionTimer;
 const filtered = computed(() =>
   filterSortEvents(
     workspace.value.events,
@@ -154,7 +159,10 @@ const tasksForDate = computed(() =>
   workspace.value.tasks
     .filter(
       (t) =>
-        taskActiveOn(t, date.value) &&
+        (taskList.value === 'closed'
+          ? taskCompletion(t, parentEvent(t), currentTime.value).closed && !!t.start_date && t.start_date <= date.value
+          : taskActiveOn(t, date.value, parentEvent(t), currentTime.value)) &&
+        t.status === 'published' &&
         (!taskType.value || taskCategory(t.task_type) === taskType.value),
     )
     .filter((t) => {
@@ -167,7 +175,9 @@ const tasksForDate = computed(() =>
           new Date(e.scheduled_publish_at) <= new Date())
       );
     })
-    .sort(compareTasks),
+    .sort(taskList.value === 'closed'
+      ? (a,b) => String(b.updated_at || '').localeCompare(String(a.updated_at || '')) || compareTasks(a,b)
+      : compareTasks),
 );
 const editingTasks = computed(() =>
   editing.value
@@ -210,19 +220,39 @@ function parentEvent(task) {
 function openFromTask(task) {
   edit(parentEvent(task));
 }
-onMounted(load);
+function completionState(task) { return taskCompletion(task, parentEvent(task), currentTime.value); }
+async function setCompletion(task, value) {
+  if (completionBusy.value) return;
+  completionBusy.value = task.id;
+  error.value = ''; notice.value = '';
+  try {
+    const parent = parentEvent(task);
+    const result = await rpc('chob_set_task_completion', completionRequest(task, parent, value));
+    if (result?.task?.id !== task.id || !result.event_updated_at) throw Error('保存结果不完整，请刷新确认。');
+    workspace.value.tasks = workspace.value.tasks.map(item => item.id === task.id ? result.task : item);
+    workspace.value.events = workspace.value.events.map(item => item.id === parent.id ? { ...item, updated_at: result.event_updated_at } : item);
+    currentTime.value = Date.now();
+    const next = taskCompletion(result.task, parentEvent(result.task), currentTime.value);
+    notice.value = value === 'open'
+      ? next.closed ? '手动标记已清除；活动已结束或事项已截止，仍保留在已结束列表。' : '事项已恢复到待办列表。'
+      : `已标记为${completionLabel(value)}，已从待办列表移出。`;
+  } catch (e) { error.value = e.message; }
+  finally { completionBusy.value = ''; }
+}
+onMounted(() => { load(); completionTimer = setInterval(() => { currentTime.value = Date.now(); }, 60000); });
+onUnmounted(() => clearInterval(completionTimer));
 </script>
 <template>
   <div class="space-y-6">
     <header class="flex flex-wrap gap-4 items-center justify-between">
       <div>
         <h1 class="text-2xl font-bold">
-          {{ isTasks ? '事项展示预览' : '活动管理' }}
+          {{ isTasks ? '事项管理' : '活动管理' }}
         </h1>
         <p class="text-gray-500 mt-2">
           {{
             isTasks
-              ? '按泰国日期预览公开事项，点击卡片编辑所属活动。'
+              ? '直接标记事项状态，前台待办列表会同步更新。'
               : '管理活动与提前参与步骤，一处录入，关联展示。'
           }}
         </p>
@@ -479,6 +509,7 @@ onMounted(load);
       </template>
       <template v-else>
         <div class="flex flex-wrap gap-3">
+          <label>事项列表<select v-model="taskList" class="input-field mt-1"><option value="pending">待办</option><option value="closed">已结束</option></select></label>
           <label
             >查看日期<input
               v-model="date"
@@ -494,14 +525,13 @@ onMounted(load);
           >
         </div>
         <p class="text-sm text-gray-500">
-          事项分类：消费、填表、开票、其他。同类按截止时间排序；此处显示当天覆盖的事项，包括当天已经截止的事项。
+          {{ taskList === 'pending' ? '只显示所选日期覆盖且尚未结束的事项。活动结束、事项截止或标记已售罄／已出名单后自动移出。' : '保留已开始的已结束事项供查看，可清除手动标记；活动已结束或事项已截止时不会重新进入待办。' }}
         </p>
         <div class="grid lg:grid-cols-2 gap-4">
-          <button
+          <article
             v-for="task in tasksForDate"
             :key="task.id"
             class="card-hover text-left space-y-3"
-            @click="openFromTask(task)"
           >
             <span class="badge badge-primary">{{
               taskLabel(task.task_type)
@@ -519,13 +549,13 @@ onMounted(load);
             <p class="text-sm font-semibold">
               活动举行：{{ parentEvent(task)?.date || '待定' }}
             </p>
-            <span class="text-primary-600 text-sm"
-              >编辑所属活动与参与规则 →</span
-            >
-          </button>
+            <p v-if="completionState(task).closed" class="text-sm font-semibold">{{ completionLabel(completionState(task)) }}</p>
+            <TaskCompletionControl :model-value="completionValue(task)" :automatic-label="!task.is_closed && completionState(task).closed ? completionLabel(completionState(task)) : ''" :label="`${task.title}状态`" :disabled="!!completionBusy" @update:model-value="value => setCompletion(task, value)" />
+            <button type="button" class="text-primary-600 text-sm" :disabled="!!completionBusy" @click="openFromTask(task)">编辑所属活动与参与规则 →</button>
+          </article>
         </div>
         <div v-if="!tasksForDate.length" class="card text-gray-500">
-          该日期没有公开事项。草稿、已撤回事项，以及未公开活动下的事项不会显示。<button
+          {{ taskList === 'pending' ? '该日期没有待办事项。' : '没有已结束的事项。' }}草稿、已撤回事项，以及未公开活动下的事项不会显示。<button
             class="text-primary-600 underline ml-2"
             @click="router.push('/events')"
           >

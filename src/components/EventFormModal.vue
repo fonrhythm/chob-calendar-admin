@@ -1,6 +1,8 @@
 <script setup>
 import EventProvenance from "./EventProvenance.vue";
 import RichTextEditor from './RichTextEditor.vue';
+import TaskCompletionControl from './TaskCompletionControl.vue';
+import { completionValue, completionPatch } from '../lib/task-completion-actions.js';
 import { publishTimestamp, localDateTime } from '../lib/publishing';
 import CatalogPicker from './CatalogPicker.vue';
 import ArtistMatchPicker from './ArtistMatchPicker.vue';
@@ -566,7 +568,8 @@ onUnmounted(() => {
                   /><small>不填为当天结束</small></label
                 >
               </div>
-              <label class="field"><span><input type="checkbox" v-model="task.is_closed" /> {{ task.task_type === 'ticketing' ? '已售罄' : task.task_type === 'shopping' ? '已截止' : '已结束' }}（可选）</span></label>
+              <TaskCompletionControl :model-value="completionValue(task)" :label="`事项${index + 1}状态标记`" :disabled="busy" @update:model-value="value => Object.assign(task, completionPatch(value))" />
+              <small>活动结束或事项截止后，会自动从待办列表移出。</small>
               <label v-if="['registration','shopping'].includes(task.task_type)" class="field">公示名单链接（可选）<input v-model="task.result_url" type="url" maxlength="2048" placeholder="https://..." /></label>
               <label class="field"
                 >操作链接<input
