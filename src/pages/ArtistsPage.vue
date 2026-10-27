@@ -14,6 +14,8 @@ import ModalShell from '@/components/common/ModalShell.vue';
 import ArtistMultiSelect from '@/components/ArtistMultiSelect.vue';
 import { groupSaveError } from '@/lib/rpc-errors';
 import { groupRows, isGroup, groupCategory } from '@/lib/groups';
+import FilterMultiSelect from '@/components/FilterMultiSelect.vue';
+import { catalogRowFacets, matchesCatalogRow, MISSING } from '@/lib/catalogFilters';
 
 const auth = useAuthStore(),
   admin = computed(() => auth.userProfile?.role === 'admin');
@@ -26,8 +28,8 @@ const artists = ref([]),
   loaded = ref(false);
 const tab = ref('artists'),
   query = ref(''),
-  company = ref(''),
-  category = ref(''),
+  company = ref(null),
+  category = ref(null),
   trash = ref(false),
   page = ref(1);
 const modal = ref(''),
@@ -54,12 +56,18 @@ const groups = computed(() => groupRows(artists.value));
 const memberCandidates = computed(() =>
   artists.value.filter((a) => !a.deleted_at && !isGroup(a)),
 );
-const companies = computed(() =>
-  [...new Set(active.value.map((a) => a.company).filter(Boolean))].sort(),
-);
-const categories = computed(() =>
-  [...new Set(['idol','group',...active.value.flatMap(artistTypeKeys)])].sort(),
-);
+const filterRows = computed(() => (tab.value === 'cp' ? pairs.value : tab.value === 'group' ? groups.value : artists.value).filter(row => !!row.deleted_at === trash.value));
+const filterFacets = computed(() => filterRows.value.map(row => catalogRowFacets(row, tab.value, artists.value)));
+const companies = computed(() => {
+  const labels = new Map(artists.value.filter(a => !!a.deleted_at === trash.value).map(a => [normalizeSearch(a.company) || MISSING, a.company?.trim() || '未填写公司']));
+  // CP members can still supply labels when the pair itself is in the recycle bin.
+  for (const a of artists.value) if (!labels.has(normalizeSearch(a.company) || MISSING)) labels.set(normalizeSearch(a.company) || MISSING, a.company?.trim() || '未填写公司');
+  return [...new Set(filterFacets.value.flatMap(f => f.companies))].map(value => ({ value, label: labels.get(value) || value })).sort((a,b) => a.label.localeCompare(b.label, 'zh-CN'));
+});
+const categories = computed(() => [...new Set(filterFacets.value.flatMap(f => f.categories))].map(value => ({ value, label: value === MISSING ? '未填写类别' : artistTypeLabels[value] || value })).sort((a,b) => a.label.localeCompare(b.label, 'zh-CN')));
+const filters = computed(() => ({ query: query.value, companies: company.value, categories: category.value, trash: trash.value }));
+function resetFilters() { company.value = null; category.value = null; }
+watch([tab, trash], resetFilters);
 
 // 需求5：排序函数
 function sortArtists(list) {
@@ -91,32 +99,10 @@ function sortArtists(list) {
   return sorted;
 }
 
-const filtered = computed(() => {
-  const result = artists.value.filter(
-    (a) =>
-      !!a.deleted_at === trash.value &&
-      searchArtist(a, query.value) &&
-      (!company.value || normalizeSearch(a.company) === normalizeSearch(company.value)) &&
-      (!category.value || artistTypeKeys(a).includes(category.value)),
-  );
-  return sortArtists(result);
-});
-
-const visible = computed(() =>
-  filtered.value.slice((page.value - 1) * 20, page.value * 20),
-);
-const filteredPairs = computed(() =>
-  pairs.value.filter(
-    (c) =>
-      !!c.deleted_at === trash.value &&
-      normalizeSearch(c.cp_name).includes(normalizeSearch(query.value)),
-  ),
-);
-const filteredGroups = computed(() =>
-  groups.value.filter(
-    (g) => !!g.deleted_at === trash.value && searchArtist(g, query.value),
-  ),
-);
+const filtered = computed(() => sortArtists(artists.value.filter(a => matchesCatalogRow(a, 'artists', artists.value, filters.value))));
+const visible = computed(() => filtered.value.slice((page.value - 1) * 20, page.value * 20));
+const filteredPairs = computed(() => pairs.value.filter(c => matchesCatalogRow(c, 'cp', artists.value, filters.value)));
+const filteredGroups = computed(() => groups.value.filter(g => matchesCatalogRow(g, 'group', artists.value, filters.value)));
 
 const importKind = ref('artists');
 const importSpec = computed(() => importSpecs[importKind.value]);
@@ -482,20 +468,18 @@ onMounted(load);
           tab === 'artists'
             ? '搜索名字、显示名称、别名或拼音'
             : tab === 'cp'
-              ? '搜索CP名称'
-              : '搜索组合名称'
+              ? '搜索CP名称或配对成员'
+              : '搜索组合名称、别名或成员'
         "
       />
-      <template v-if="tab === 'artists'">
-        <select aria-label="公司筛选" v-model="company" class="input-field">
-          <option value="">全部公司</option>
-          <option v-for="c in companies" :key="c">{{ c }}</option>
-        </select>
-        <select aria-label="类别筛选" v-model="category" class="input-field">
-          <option value="">全部类别</option>
-          <option v-for="c in categories" :key="c" :value="c">{{ artistTypeLabels[c] || c }}</option>
-        </select>
-      </template>
+      <FilterMultiSelect v-model="company" label="公司" :options="companies" />
+      <FilterMultiSelect v-model="category" label="类别" :options="categories" />
+    </div>
+
+    <div class="flex flex-wrap gap-3 items-center text-sm text-gray-500">
+      <span>同一筛选可多选，公司与类别可组合使用。</span>
+      <span v-if="tab === 'cp'">CP 按配对成员的公司和类别筛选。</span>
+      <button v-if="company !== null || category !== null" type="button" class="text-primary-600" @click="resetFilters">重置筛选</button>
     </div>
 
     <!-- 需求5：艺人排序按钮 -->
