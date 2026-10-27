@@ -14,7 +14,7 @@ const roles = {
 };
 const items = computed(() => [
   { path: '/', label: '概览' },
-  ...(auth.userProfile?.role === 'admin'
+  ...(['admin', 'collaborator_fan'].includes(auth.userProfile?.role)
     ? [{ path: '/artists', label: '艺人 / CP资料库' }]
     : []),
   ...(['admin', 'collaborator_fan'].includes(auth.userProfile?.role)

@@ -80,7 +80,7 @@ const routes = [
         path: 'artists',
         name: 'Artists',
         component: ArtistsPage,
-        meta: { title: '艺人管理', adminOnly: true },
+        meta: { title: '艺人资料库', editorAllowed: true },
       },
       {
         path: 'events',
