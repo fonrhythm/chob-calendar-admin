@@ -1,5 +1,6 @@
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, ref, nextTick, watch } from 'vue';
+import {locateImportFailure,importRowSignature} from '@/lib/import-feedback';
 import ModalShell from './common/ModalShell.vue';
 import {
   csvImportRows,
@@ -36,9 +37,18 @@ const rows = ref([]),
   busy = ref(false),
   reading = ref(false),
   defaults = ref({ region: '', condition: '' });
-const preview = computed(() =>
-  previewImport(rows.value, props.workspace, defaults.value),
-);
+const serverIssues=ref({}),errorRowId=ref('');
+const signature=row=>importRowSignature(row.raw,defaults.value,importMode.value);
+watch(()=>{const row=rows.value.find(row=>row.id===errorRowId.value);return row?signature(row):'';},()=>{
+  const row=rows.value.find(row=>row.id===errorRowId.value),issue=serverIssues.value[errorRowId.value];
+  if(errorRowId.value&&(!row||issue&&issue.signature!==signature(row))){errorRowId.value='';error.value='';}
+});
+const preview = computed(() => previewImport(rows.value, props.workspace, defaults.value).map(row=>{
+  const raw=rows.value.find(item=>item.id===row.event.id),issue=serverIssues.value[row.event.id];
+  return {...row,problems:[...new Set([...row.problems,...(issue&&raw&&issue.signature===signature(raw)?[issue.message]:[])])]};
+}));
+async function focusProblem(id=errorRowId.value){await nextTick();document.getElementById('import-row-'+id)?.scrollIntoView({block:'center',behavior:'smooth'});}
+function fieldHasProblem(key,problems){const terms={name:/艺人|重复/,activity:/名称/,date:/日期|重复/,time:/时间/,venue:/场地|地址|重复/,city:/城市|地址|重复/,category:/类型|重复/,region:/地区/,participation_condition:/参与方式/,picture_url:/图片/,ticket_url:/链接/,sale_date:/开售|开票/,sale_time:/开售|开票/};return problems.some(problem=>terms[key]?.test(problem));}
 const invalid = computed(
   () => preview.value.filter((r) => r.problems.length).length,
 );
@@ -54,6 +64,7 @@ async function choose(e) {
   reading.value = true;
   error.value = '';
   rows.value = [];
+  serverIssues.value={};errorRowId.value='';
   filename.value = file.name;
   try {
     if (file.size > 5 * 1024 * 1024)
@@ -77,6 +88,7 @@ async function submit() {
   if (busy.value || !valid.length) return;
   busy.value = true;
   error.value = '';
+  errorRowId.value = '';
   try {
     await importEventBundles(
       valid.map((r) => ({ event: r.event, tasks: r.tasks })),
@@ -88,7 +100,13 @@ async function submit() {
     emit('imported');
     if (!rows.value.length) emit('saved');
   } catch (e) {
-    error.value = e.message;
+    const issue=locateImportFailure(e.message,valid);
+    if(issue){
+      const row=rows.value.find(row=>row.id===issue.id);
+      if(row)serverIssues.value={...serverIssues.value,[issue.id]:{message:issue.message,signature:signature(row)}};
+      errorRowId.value=issue.id;error.value=issue.message;
+      await focusProblem(issue.id);emit('imported');
+    }else error.value=e.message;
   } finally {
     busy.value = false;
   }
@@ -172,6 +190,7 @@ function removeRow(id) {
         class="text-red-700 bg-red-50 p-3 rounded-lg"
       >
         {{ error }}
+        <button v-if="errorRowId" type="button" class="underline ml-2" @click="focusProblem()">定位问题行</button>
       </p>
       <template v-if="rows.length"
         ><p class="font-medium">
@@ -188,10 +207,11 @@ function removeRow(id) {
               </tr>
             </thead>
             <tbody class="divide-y">
-              <tr v-for="r in preview" :key="r.event.id">
+              <tr v-for="r in preview" :key="r.event.id" :id="'import-row-'+r.event.id" :class="{'bg-red-50':r.problems.length}">
                 <td class="p-3">{{ r.line }}</td>
                 <td class="p-3">
-                  <b>{{ r.names }}</b
+                  <span v-if="r.problems.length || r.warnings.length" class="import-issue" :class="r.problems.length?'import-issue-error':'import-issue-warning'" role="img" :aria-label="(r.problems.length?'需修正：':'需注意：')+[...r.problems,...r.warnings].join('；')" :title="[...r.problems,...r.warnings].join('；')">!</span>
+                  <b>{{ r.names || '未填写艺人' }}</b
                   ><button
                     class="btn-ghost"
                     @click="
@@ -202,7 +222,7 @@ function removeRow(id) {
                   </button>
                   <button class="btn-ghost text-red-700" :disabled="busy" @click="removeRow(r.event.id)">移除此行</button>
                   <div v-if="editingId === r.event.id" class="import-editor">
-                    <label v-for="(label, key) in editFields" :key="key"
+                    <label v-for="(label, key) in editFields" :key="key" :class="{'import-field-error':fieldHasProblem(key,r.problems)}"
                       >{{ label
                       }}<input
                         v-model="rows.find((x) => x.id === r.event.id).raw[key]"
@@ -281,4 +301,7 @@ function removeRow(id) {
   border-radius: 6px;
   padding: 6px;
 }
+.import-issue{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;font-weight:800;margin-right:8px;vertical-align:middle}
+.import-issue-error{background:#b91c1c;color:white}.import-issue-warning{background:#fef3c7;color:#92400e;border:1px solid #d97706}
+.import-field-error{color:#b91c1c}.import-field-error input{border-color:#b91c1c;background:#fff1f2}
 </style>
