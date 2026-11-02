@@ -1,6 +1,10 @@
 {
   "tesseract": "7.0.0",
-  "models": "tesseract-ocr/tessdata_fast",
+  "models": {
+    "eng": "tesseract-ocr/tessdata_fast",
+    "tha": "naptha/tessdata/4.0.0_best_int",
+    "fast": "tesseract-ocr/tessdata_fast"
+  },
   "files": [
     {
       "file": "LICENSE-core.txt",
@@ -44,6 +48,16 @@
     },
     {
       "file": "lang/tha.traineddata.gz",
+      "bytes": 896631,
+      "sha256": "4550a5505184d1b79cf10416d5b19e643001d95411d5e717954dd26feef3ae74"
+    },
+    {
+      "file": "lang-fast/eng.traineddata.gz",
+      "bytes": 1975928,
+      "sha256": "22d975baf864a9d30757dccd47020e08c433ba4b2324d1edbfc645df996a15be"
+    },
+    {
+      "file": "lang-fast/tha.traineddata.gz",
       "bytes": 905642,
       "sha256": "f1dcd001ff5a66eedf81a6c0a2262ba73aff6946bb36d50b3de9c2beba3561a7"
     }

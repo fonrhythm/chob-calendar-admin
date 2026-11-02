@@ -1,6 +1,7 @@
 <script setup>
 import {computed,ref,onUnmounted} from 'vue';
 import ModalShell from './common/ModalShell.vue';
+import ImageRegionPicker from './ImageRegionPicker.vue';
 import {BAR_NOTICE,FORMS,parseMonthlyText,monthlyCandidates,mergeMonthlyLineup,monthlyLineup} from '@/lib/monthly-schedule';
 import {recognizeMonthlyImage} from '@/lib/monthly-ocr';
 import {saveImage} from '@/lib/event-images';
@@ -12,27 +13,30 @@ import {rpc} from '@/lib/api';
 const props=defineProps({workspace:Object}),emit=defineEmits(['close','imported']);
 const artistId=ref(''),month=ref(new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Bangkok'}).slice(0,7)),sourceUrl=ref(''),imageInput=ref(''),imageUrl=ref(''),originalImageUrl=ref(''),region=ref('泰国'),condition=ref('');
 const bulkForm=ref(''),bulkCategory=ref('');
-const busy=ref(false),error=ref(''),message=ref(''),text=ref(''),rows=ref([]),crop=ref(0),imageMode=ref('original'),mode=ref('draft'),sourceId=ref('');
+const recognizeRegion=ref({left:0,top:0,right:100,bottom:100}),layout=ref('blocks'),language=ref('mixed'),appendText=ref(false),quality=ref('accurate'),recognizing=ref(false);let ocrController=null;
+const busy=ref(false),error=ref(''),message=ref(''),text=ref(''),rows=ref([]),imageMode=ref('original'),mode=ref('draft'),sourceId=ref('');
 const artists=computed(()=>props.workspace.artists.filter(a=>!a.deleted_at));
 const selected=computed(()=>rows.value.filter(r=>r.selected));
 const allSelected=computed(()=>rows.value.length>0&&selected.value.length===rows.value.length);
 let localFile=null;const objectUrl=ref('');
 const previewUrl=computed(()=>objectUrl.value||imageUrl.value);
 function resetReview(){for(const row of rows.value)row.reviewed=false;}
-async function fileChosen(e){const file=e.target.files?.[0];e.target.value='';if(!file)return;if(file.size>10*1024*1024){error.value='图片不能超过 10 MB';return;}if(objectUrl.value)URL.revokeObjectURL(objectUrl.value);localFile=file;objectUrl.value=URL.createObjectURL(file);imageUrl.value='';imageInput.value='';originalImageUrl.value='';resetReview();}
+async function fileChosen(e){const file=e.target.files?.[0];e.target.value='';if(!file)return;if(file.size>10*1024*1024){error.value='图片不能超过 10 MB';return;}if(objectUrl.value)URL.revokeObjectURL(objectUrl.value);localFile=file;objectUrl.value=URL.createObjectURL(file);imageUrl.value='';imageInput.value='';originalImageUrl.value='';recognizeRegion.value={left:0,top:0,right:100,bottom:100};resetReview();}
 async function ensureImage(){if(imageUrl.value)return imageUrl.value;if(localFile){imageUrl.value=await saveImage(localFile);}else{if(!imageInput.value.trim())throw Error('请提供图片链接或上传原图');originalImageUrl.value=imageInput.value.trim();imageUrl.value=await saveImage(imageInput.value.trim());}return imageUrl.value;}
-async function recognize(){if(busy.value)return;busy.value=true;error.value='';try{
+async function loadImage(){if(busy.value)return;busy.value=true;error.value='';try{await ensureImage();message.value='图片已载入，请框选行程文字区域';}catch(e){error.value=e.message;}finally{busy.value=false;}}
+async function recognize(){if(busy.value)return;busy.value=true;recognizing.value=true;ocrController=new AbortController();error.value='';try{
  const url=await ensureImage();message.value='准备本地识别模型，首次加载需要稍等…';
  const blob=localFile||await (await fetch(url)).blob(),bitmap=await createImageBitmap(blob);
- const top=Math.round(bitmap.height*crop.value/100),scale=Math.min(2,2600/bitmap.width);
- const canvas=document.createElement('canvas');canvas.width=Math.round(bitmap.width*scale);canvas.height=Math.round((bitmap.height-top)*scale);const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.drawImage(bitmap,0,top,bitmap.width,bitmap.height-top,0,0,canvas.width,canvas.height);bitmap.close();
+ const area=recognizeRegion.value,left=Math.round(bitmap.width*area.left/100),top=Math.round(bitmap.height*area.top/100),width=Math.round(bitmap.width*(area.right-area.left)/100),height=Math.round(bitmap.height*(area.bottom-area.top)/100);
+ if(width<8||height<8){bitmap.close();throw Error('识别区域太小，请重新框选');}
+ const scale=Math.min(3,2400/width),canvas=document.createElement('canvas');canvas.width=Math.round(width*scale);canvas.height=Math.round(height*scale);const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(bitmap,left,top,width,height,0,0,canvas.width,canvas.height);bitmap.close();
  if(imageMode.value!=='original'){const data=ctx.getImageData(0,0,canvas.width,canvas.height);for(let i=0;i<data.data.length;i+=4){const r=data.data[i],g=data.data[i+1],b=data.data[i+2];const v=imageMode.value==='red'?(r>g*1.3&&r>b*1.2&&r>55?0:255):255-Math.round(.299*r+.587*g+.114*b);data.data[i]=data.data[i+1]=data.data[i+2]=v;}ctx.putImageData(data,0,0);}
- text.value=await recognizeMonthlyImage(canvas,m=>{message.value=`本地识别中 ${Math.round((m.progress||0)*100)}%`;});message.value='识别完成，请检查原始文字并生成初稿。';
- }catch(e){error.value=e.message;}finally{busy.value=false;}}
+ const recognized=await recognizeMonthlyImage(canvas,m=>{message.value=`本地识别中 ${Math.round((m.progress||0)*100)}%`;},{layout:layout.value,language:language.value,quality:quality.value,signal:ocrController.signal});text.value=appendText.value&&text.value.trim()?text.value.trim()+String.fromCharCode(10)+recognized:recognized;message.value='区域识别完成。日期下面的说明会归为同一条；请检查泰文、日期和地点，再生成初稿。';
+ }catch(e){error.value=e.message;message.value='';}finally{busy.value=false;recognizing.value=false;ocrController=null;}}
 function generate(){error.value='';if(!artistId.value||!month.value){error.value='请先选择艺人和年月';return;}if(rows.value.length&&!window.confirm('重新生成会替换当前未导入的核对内容，继续吗？'))return;
  rows.value=parseMonthlyText(text.value,month.value).map(row=>({...row,id:crypto.randomUUID()}));
  for(const row of rows.value){const candidates=monthlyCandidates(row,props.workspace.events);if(candidates.length===1&&candidates[0].exact)row.action=candidates[0].event.id;}
- if(!rows.value.length)error.value='没有识别到日期开头的行程。可修正文字，每行填写“03 活动名称 | 场地”，再生成初稿。';
+ if(!rows.value.length)error.value='没有识别到日期开头的行程。请检查识别区域；支持“05 Nov”下面多行说明，也支持“03 活动名称 | 场地”。';
 }
 function changeForm(row){if(row.form==='bar'&&!row.note.includes(BAR_NOTICE))row.note=[row.note,BAR_NOTICE].filter(Boolean).join('\n');else if(row.form!=='bar')row.note=row.note.replace(BAR_NOTICE,'').trim();row.reviewed=false;}
 function common(){return {artistId:artistId.value,month:month.value,sourceUrl:sourceUrl.value.trim(),imageUrl:imageUrl.value,originalImageUrl:originalImageUrl.value};}
@@ -62,7 +66,7 @@ async function submit(){if(busy.value)return;busy.value=true;error.value='';let 
  }
  emit('imported');
  }catch(e){error.value=`${count?'已保存 '+count+' 条，其余保留供重试。':''}${e.message}`;if(count)emit('imported');}finally{busy.value=false;}}
-onUnmounted(()=>{if(objectUrl.value)URL.revokeObjectURL(objectUrl.value);});
+onUnmounted(()=>{ocrController?.abort();if(objectUrl.value)URL.revokeObjectURL(objectUrl.value);});
 </script>
 <template>
 <ModalShell class="monthly-dialog" title="月行程图导入" :busy="busy" @close="emit('close')">
@@ -77,8 +81,10 @@ onUnmounted(()=>{if(objectUrl.value)URL.revokeObjectURL(objectUrl.value);});
  <label>新增活动参与方式<select v-model="condition" :disabled="busy" class="input-field" @change="resetReview"><option value="">请选择</option><option v-for="c in workspace.conditions" :key="c.code" :value="c.code">{{recordLabel(c)}}</option></select></label>
  </div>
  <label class="btn-secondary inline-block cursor-pointer">上传原图<input type="file" class="sr-only" accept="image/png,image/jpeg,image/webp" :disabled="busy||rows.length>0" @change="fileChosen" /></label>
- <img v-if="previewUrl && !rows.length" :src="previewUrl" alt="月行程原图" class="max-h-72 max-w-full object-contain" />
- <div class="flex flex-wrap gap-3 items-center"><label>跳过顶部海报 {{crop}}%<input v-model.number="crop" type="range" min="0" max="90" :disabled="busy" /></label><label>图片文字<select v-model="imageMode" :disabled="busy" class="input-field"><option value="original">普通图片</option><option value="red">红字深底</option><option value="dark">浅字深底</option></select></label><button class="btn-secondary" :disabled="busy" @click="recognize">识别图片文字</button></div>
+ <button type="button" class="btn-secondary" :disabled="busy" @click="loadImage">载入链接图片</button>
+ <ImageRegionPicker v-if="previewUrl" v-model="recognizeRegion" :src="previewUrl" :disabled="busy" />
+ <div class="flex flex-wrap gap-3 items-center"><label>排版<select v-model="layout" :disabled="busy" class="input-field"><option value="blocks">日期下方有多行说明／不规则排版</option><option value="rows">日期、名称、地点在同一行</option></select></label><label>语言<select v-model="language" :disabled="busy" class="input-field"><option value="mixed">泰语＋英语</option><option value="tha">泰语</option><option value="eng">英语</option></select></label><label>识别模式<select v-model="quality" :disabled="busy" class="input-field"><option value="accurate">泰文增强</option><option value="fast">常规（较快）</option></select></label><label>图片文字<select v-model="imageMode" :disabled="busy" class="input-field"><option value="original">普通图片</option><option value="red">红字深底</option><option value="dark">浅字深底</option></select></label><button class="btn-secondary" :disabled="busy" @click="recognize">识别图片文字</button><button v-if="recognizing" class="btn-secondary" @click="ocrController?.abort()">停止识别</button></div>
+ <label class="block"><input v-model="appendText" type="checkbox" :disabled="busy" />追加到已有识别文字（多栏时分别框选使用）</label>
  <p class="text-sm text-gray-500">只在当前浏览器识别，不调用外部 AI API。识别不准可在下方修正文字。场地和城市不会凭空推断。</p>
  <label class="block">识别文字／手动粘贴<textarea v-model="text" :disabled="busy" rows="8" class="input-field" placeholder="03 ร้าน HEY BAR | PRACHA CHUEN&#10;21 งาน CAT EXPO 13 | SIAM AMAZING PARK"></textarea></label>
  <button class="btn-secondary" :disabled="busy" @click="generate">生成核对初稿</button>
@@ -88,7 +94,7 @@ onUnmounted(()=>{if(objectUrl.value)URL.revokeObjectURL(objectUrl.value);});
  <div class="flex flex-wrap gap-2"><select v-model="bulkForm" :disabled="busy" class="input-field"><option value="">批量设置已勾选行程的演出形式</option><option v-for="(label,key) in FORMS" :key="key" :value="key">{{label}}</option></select><button class="btn-secondary" :disabled="busy||!bulkForm" @click="selected.forEach(r=>{r.form=bulkForm;changeForm(r)})">应用演出形式</button><select v-model="bulkCategory" :disabled="busy" class="input-field"><option value="">批量设置活动类型</option><option v-for="t in ACTIVITY_TYPES" :key="t.id" :value="t.id">{{t.name}}</option></select><button class="btn-secondary" :disabled="busy||!bulkCategory" @click="selected.forEach(r=>{r.category=bulkCategory;r.reviewed=false})">应用活动类型</button></div>
  <div class="monthly-review-layout"><aside v-if="previewUrl"><img :src="previewUrl" alt="核对用原始月行程图" /></aside><div class="space-y-3">
  <article v-for="row in rows" :key="row.id" class="border rounded-lg p-3 space-y-2" :class="{'bg-green-50':row.reviewed}">
- <label><input v-model="row.selected" type="checkbox" :disabled="busy" />导入此条</label><p class="text-sm text-gray-500">原文：{{row.original}}</p>
+ <label><input v-model="row.selected" type="checkbox" :disabled="busy" />导入此条</label><p class="text-sm text-gray-500 whitespace-pre-line">原文：{{row.original}}</p><p v-for="warning in row.parseWarnings || []" :key="warning" class="text-red-700">! {{warning}}</p>
  <div class="grid sm:grid-cols-2 gap-2" @input="row.reviewed=false" @change="row.reviewed=false">
  <label>日期<input v-model="row.date" type="date" :disabled="busy" class="input-field" /></label><label>时间<input v-model="row.time" :disabled="busy" class="input-field" placeholder="留空＝待公布" /></label>
  <label>活动名称<input v-model="row.title" :disabled="busy" class="input-field" /></label><label>场地<input v-model="row.venue" :disabled="busy" class="input-field" /></label><label>城市<input v-model="row.city" :disabled="busy" class="input-field" placeholder="新增活动需人工补全" /></label>

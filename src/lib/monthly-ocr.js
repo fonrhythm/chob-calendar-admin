@@ -1,10 +1,10 @@
-export async function recognizeMonthlyImage(image, progress, rectangle) {
+import {runOcrSession} from './ocr-session.js';
+export async function recognizeMonthlyImage(image, progress, options = {}) {
   const {createWorker,PSM}=await import('tesseract.js');
   const root=new URL(import.meta.env.BASE_URL+'ocr/',location.origin).href;
-  const worker=await createWorker(['eng','tha'],1,{workerPath:root+'worker.min.js',corePath:root+'core',langPath:root+'lang',logger:m=>progress?.(m)});
-  try {
-    await worker.setParameters({tessedit_pageseg_mode:PSM.SINGLE_BLOCK,preserve_interword_spaces:'1'});
-    const result=await worker.recognize(image,rectangle?{rectangle}:{},{text:true,blocks:true});
+  return runOcrSession(errorHandler=>createWorker(options.language==='eng'?['eng']:options.language==='tha'?['tha']:['tha','eng'],1,{workerPath:root+'worker.min.js',corePath:root+'core',langPath:root+(options.quality==='fast'?'lang-fast':'lang'),cachePath:options.quality==='fast'?'chob-monthly-fast-v1':'chob-monthly-best-int-v1',logger:m=>progress?.(m),errorHandler}),async worker=>{
+    await worker.setParameters({tessedit_pageseg_mode:options.layout==='rows'?PSM.SINGLE_BLOCK:PSM.SPARSE_TEXT,preserve_interword_spaces:'1'});
+    const result=await worker.recognize(image,options.rectangle?{rectangle:options.rectangle}:{},{text:true,blocks:true});
     const words=(result.data.blocks||[]).flatMap(b=>(b.paragraphs||[]).flatMap(p=>(p.lines||[]).flatMap(l=>l.words||[]))).filter(w=>w.text?.trim());
     if(!words.length)return result.data.text;
     const rows=[];
@@ -18,5 +18,5 @@ export async function recognizeMonthlyImage(image, progress, rectangle) {
       words.forEach((word,index)=>{const previous=words[index-1];const gap=previous?word.bbox.x0-previous.bbox.x1:0;
         text+=(index?(index>1&&gap>Math.max(35,row.height*2)?' | ':' '):'')+word.text;});return text;
     }).join('\n');
-  }finally{await worker.terminate();}
+  },{signal:options.signal});
 }
