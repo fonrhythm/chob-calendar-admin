@@ -1,0 +1,57 @@
+BEGIN;
+CREATE OR REPLACE FUNCTION public.chob_analytics(filters jsonb DEFAULT '{}'::jsonb, subject text DEFAULT NULL, page_number integer DEFAULT 0)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY INVOKER SET search_path='' AS $$
+DECLARE result jsonb; start_day date:=nullif(filters->>'start','')::date; end_day date:=nullif(filters->>'end','')::date;
+BEGIN
+ IF NOT coalesce(chob_private.is_admin(),false) THEN RAISE EXCEPTION '仅管理员可以查看统计' USING ERRCODE='42501'; END IF;
+ IF start_day>end_day OR page_number<0 THEN RAISE EXCEPTION '筛选范围无效'; END IF;
+ IF coalesce(filters->>'kind','personal') NOT IN ('personal','cp','group') THEN RAISE EXCEPTION '统计主体无效'; END IF;
+ WITH catalog AS MATERIALIZED (
+  SELECT a.id::text id,a.name::text name,CASE WHEN nullif(a.group_kind,'') IS NULL THEN 'personal' ELSE 'group' END kind,a.categories,a.deleted_at FROM public.artists a
+  UNION ALL SELECT 'cp:'||p.id::text,p.cp_name,'cp',ARRAY[]::text[],p.deleted_at FROM public.cp_pairs p
+ ), base AS MATERIALIZED (
+  SELECT e.id,e.title,e.date,e.location_region city,e.status,e.cancelled_at,e.attributes,
+   coalesce(nullif(e.attributes->>'activity_category',''),'unknown') category,
+   CASE lower(e.attributes->>'region') WHEN 'thailand' THEN '泰国' WHEN '泰国' THEN '泰国' WHEN 'china' THEN '中国' WHEN '中国' THEN '中国' WHEN 'oversea' THEN '海外' WHEN 'overseas' THEN '海外' WHEN '海外' THEN '海外' WHEN '其他国家或地区' THEN '海外' WHEN 'philippines' THEN '海外' WHEN 'south korea' THEN '海外' ELSE '待确认' END region
+  FROM public.events e WHERE nullif(e.attributes->>'admin_deleted_at','') IS NULL AND nullif(e.attributes->>'merged_into','') IS NULL
+ ), selected AS MATERIALIZED (
+  SELECT b.* FROM base b WHERE (start_day IS NULL OR b.date>=start_day) AND (end_day IS NULL OR b.date<=end_day)
+   AND (coalesce(filters->>'category','')='' OR b.category=filters->>'category')
+   AND (coalesce(filters->>'region','')='' OR b.region=filters->>'region')
+   AND (coalesce(filters->>'city','')='' OR b.city=filters->>'city')
+   AND (coalesce(filters->>'status','effective')='all' OR (b.status='published' AND b.date IS NOT NULL AND b.cancelled_at IS NULL AND coalesce(b.attributes->>'event_status','active') NOT IN ('cancelled','postponed')))
+   AND (coalesce(filters->>'genre','')='' OR EXISTS(SELECT 1 FROM jsonb_array_elements_text(coalesce(b.attributes->'artist_selections','[]')) s JOIN catalog c ON c.id=s.value WHERE c.deleted_at IS NULL AND EXISTS(SELECT 1 FROM unnest(c.categories) g WHERE lower(g)=lower(filters->>'genre'))))
+ ), relations AS MATERIALIZED (
+  SELECT DISTINCT b.id event_id,c.id,c.name,c.kind,c.deleted_at FROM selected b CROSS JOIN LATERAL jsonb_array_elements_text(coalesce(b.attributes->'artist_selections','[]')) s JOIN catalog c ON c.id=s.value
+  WHERE c.kind=coalesce(filters->>'kind','personal') AND (coalesce(filters->>'genre','')='' OR EXISTS(SELECT 1 FROM unnest(c.categories) g WHERE lower(g)=lower(filters->>'genre')))
+ ), counts AS (
+  SELECT id,name,kind,deleted_at,count(*) n FROM relations GROUP BY id,name,kind,deleted_at
+ ), ranked AS MATERIALIZED (
+  SELECT *,rank() OVER(ORDER BY n DESC) position,count(*) OVER() population FROM counts
+ ), detail AS MATERIALIZED (
+  SELECT b.id,b.title,b.date,b.city,b.category,b.region FROM selected b WHERE (subject IS NULL OR EXISTS(SELECT 1 FROM relations r WHERE r.event_id=b.id AND r.id=subject))
+ ), quality AS (
+  SELECT b.id,b.title,b.date,
+  concat_ws('；',CASE WHEN b.date IS NULL THEN '日期未定' END,CASE WHEN coalesce(b.attributes->'artist_selections','[]')='[]'::jsonb THEN '没有明确艺人关联' END,CASE WHEN b.region='待确认' THEN '地区待确认' END,CASE WHEN b.category='unknown' THEN '缺少活动分类' END) issue FROM base b
+ )
+ SELECT jsonb_build_object(
+ 'total',(SELECT count(*) FROM selected),
+ 'participating',(SELECT count(*) FROM counts),
+ 'active',(SELECT count(*) FROM ranked WHERE position<=ceil(population/2.0)),
+ 'catalog_total',(SELECT count(*) FROM catalog c WHERE c.deleted_at IS NULL AND c.kind=coalesce(filters->>'kind','personal') AND (coalesce(filters->>'genre','')='' OR EXISTS(SELECT 1 FROM unnest(c.categories) g WHERE lower(g)=lower(filters->>'genre')))),
+ 'covered',(SELECT count(*) FROM counts WHERE deleted_at IS NULL),
+ 'rankings',coalesce((SELECT jsonb_agg(to_jsonb(t) ORDER BY t.position,t.name,t.id) FROM (SELECT id,name,kind,n,position,deleted_at IS NOT NULL archived FROM ranked ORDER BY n DESC,name,id LIMIT 100 OFFSET CASE WHEN subject IS NULL THEN page_number*100 ELSE 0 END)t),'[]'),
+ 'detail_total',(SELECT count(*) FROM detail),
+ 'details',coalesce((SELECT jsonb_agg(to_jsonb(t) ORDER BY t.date,t.id) FROM (SELECT * FROM detail ORDER BY date NULLS LAST,id LIMIT 100 OFFSET page_number*100)t),'[]'),
+ 'categories',coalesce((SELECT jsonb_agg(to_jsonb(t)) FROM (SELECT category,count(*) n FROM selected GROUP BY category ORDER BY count(*) DESC)t),'[]'),
+ 'months',coalesce((SELECT jsonb_agg(to_jsonb(t) ORDER BY t.month_key) FROM (SELECT to_char(date,'YYYY-MM') AS month_key,count(*) n FROM selected WHERE date IS NOT NULL GROUP BY 1)t),'[]'),
+ 'quality_total',(SELECT count(*) FROM quality WHERE issue<>''),
+ 'quality',coalesce((SELECT jsonb_agg(to_jsonb(t)) FROM (SELECT * FROM quality WHERE issue<>'' ORDER BY date NULLS LAST,id LIMIT 100 OFFSET page_number*100)t),'[]'),
+ 'options',jsonb_build_object('categories',(SELECT jsonb_agg(DISTINCT category) FROM base),'cities',(SELECT jsonb_agg(DISTINCT city) FROM base WHERE nullif(city,'') IS NOT NULL))
+ ) INTO result;
+ RETURN result;
+END $$;
+REVOKE ALL ON FUNCTION public.chob_analytics(jsonb,text,integer) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.chob_analytics(jsonb,text,integer) TO authenticated;
+NOTIFY pgrst,'reload schema';
+COMMIT;

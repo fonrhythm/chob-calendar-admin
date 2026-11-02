@@ -52,6 +52,7 @@ const routes = [
     component: DashboardLayout,
     meta: { requiresAuth: true },
     children: [
+      {path:'analytics',name:'Analytics',component:()=>import('@/pages/AnalyticsPage.vue'),meta:{title:'数据统计与分析',adminOnly:true}},
       {
         path: 'community',
         name: 'Community',
