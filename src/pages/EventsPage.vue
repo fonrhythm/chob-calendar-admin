@@ -20,6 +20,18 @@ import {
 } from '@/lib/tasks';
 import EventFormModal from '@/components/EventFormModal.vue';
 import EventImportModal from '@/components/EventImportModal.vue';
+import MonthlyImportModal from '@/components/MonthlyImportModal.vue';
+const monthlyOpen=ref(false),repairBusy=ref(false);
+import {facebookImage} from '@/lib/event-images';
+import {saveEventWithTasks} from '@/lib/events';
+const facebookImageEvents=computed(()=>workspace.value.events.filter(e=>(e.attributes?.picture_urls||[]).some(facebookImage)));
+async function repairImages(){if(repairBusy.value)return;repairBusy.value=true;error.value='';let savedCount=0;const failed=[];try{
+ const current=await loadEventWorkspace();
+ const targets=current.events.filter(e=>(e.attributes?.picture_urls||[]).some(facebookImage)).slice(0,20);
+ for(const event of targets){try{await saveEventWithTasks(event,current.tasks.filter(t=>t.event_id===event.id));savedCount++;}catch(e){failed.push(event.title+'：'+e.message);}}
+ await load();notice.value='已转存 '+savedCount+' 场活动的 FB 图片。每次最多处理 20 场，可继续处理剩余图片。';if(failed.length)error.value=failed.join('；');
+ }catch(e){error.value=e.message;}finally{repairBusy.value=false;}}
+
 import {
   eventArtistNames,
   filterSortEvents,
@@ -257,7 +269,9 @@ onUnmounted(() => clearInterval(completionTimer));
           }}
         </p>
       </div>
-      <div class="flex gap-3">
+      <div class="flex flex-wrap gap-3">
+        <button class="btn-secondary" :disabled="!ready || loading" @click="monthlyOpen = true">月行程图导入</button>
+        <button v-if="facebookImageEvents.length" class="btn-secondary" :disabled="repairBusy || loading" @click="repairImages">{{repairBusy?'正在转存 FB 图片…':'转存现有 FB 图片（'+facebookImageEvents.length+' 场）'}}</button>
         <button
           class="btn-secondary"
           :disabled="!ready || loading"
@@ -564,6 +578,7 @@ onUnmounted(() => clearInterval(completionTimer));
         </div>
       </template>
     </template>
+    <MonthlyImportModal v-if="monthlyOpen" :workspace="workspace" @close="monthlyOpen=false" @imported="load" />
     <EventImportModal
       v-if="importOpen"
       :workspace="workspace"

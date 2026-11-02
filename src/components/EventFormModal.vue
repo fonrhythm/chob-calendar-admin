@@ -12,6 +12,7 @@ import { ACTIVITY_TYPES, activityCategory } from '@/lib/activity-types';
 import { rpc } from '@/lib/api';
 import ArtistMultiSelect from './ArtistMultiSelect.vue';
 import { newEvent, saveEventWithTasks } from '@/lib/events';
+import ImageUpload from './ImageUpload.vue';
 import { eventTime, imageUrls, recordLabel } from '@/lib/event-fields';
 import { newTask, TASK_TYPES, taskCategory, safeWebUrl } from '@/lib/tasks';
 const props = defineProps({
@@ -416,6 +417,8 @@ onUnmounted(() => {
             </select></label
           >
           <div class="field">
+            <ImageUpload @uploaded="pictureText = [pictureText, $event].filter(Boolean).join('\n')" />
+            <small>FB 临时图片链接将在保存活动时转存到本站；无法读取时请上传原图。</small>
             <label for="event-pictures">活动图片</label
             ><textarea
               id="event-pictures"

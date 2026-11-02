@@ -1,6 +1,7 @@
 import { supabase } from '@/config/supabase';
 import { allRows } from './api';
 import { validateEvent } from './event-fields.js';
+import {persistEventImages} from './event-images.js';
 
 export const EVENT_STATUSES = {
   draft: '草稿',
@@ -40,6 +41,7 @@ export function newEvent() {
 export async function saveEventWithTasks(event, tasks, notice = null, provenance = null) {
   const problem = validateEvent(event, tasks);
   if (problem) throw new Error(problem);
+  event = await persistEventImages(event);
   const { data, error } = await supabase.rpc(
     provenance?.review_id ? 'chob_apply_automation_review' : provenance ? 'chob_save_event_architecture' : notice ? 'chob_save_event_with_notice' : 'chob_save_event_bundle_v2',
     {
@@ -59,6 +61,9 @@ export async function saveEventWithTasks(event, tasks, notice = null, provenance
   return data;
 }
 export async function importEventBundles(bundles, mode = 'draft') {
+  const saved=[];
+  for(const bundle of bundles)saved.push({...bundle,event:await persistEventImages(bundle.event)});
+  bundles=saved;
   const { data, error } = await supabase.rpc('chob_import_event_bundles_v2', {
     bundles,
     publish_now: mode === 'published',
