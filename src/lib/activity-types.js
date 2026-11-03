@@ -5,6 +5,7 @@ export const ACTIVITY_TYPES = [
   { id: 'press', name: '发布会/记者会' },
   { id: 'fashion', name: '时装周' },
   { id: 'interaction', name: '站台活动' },
+  { id: 'consumer_commercial', name: '消费型商务' },
   { id: 'awards', name: '颁奖红毯' },
   { id: 'broadcast', name: '线上直播' },
   { id: 'other', name: '其他' },
@@ -14,6 +15,7 @@ export function activityCategory(value) {
     .trim()
     .toLowerCase();
   if (v === 'brand') return 'interaction';
+  if (/消费型商务/.test(v)) return 'consumer_commercial';
   if (ACTIVITY_TYPES.some((t) => t.id === v)) return v;
   if (/时装周|fashion\s*week/.test(v)) return 'fashion';
   if (/发布会|记者会|新闻发布|press.?conference/.test(v)) return 'press';
