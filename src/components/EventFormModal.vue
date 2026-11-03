@@ -39,7 +39,7 @@ const form = ref(
 );
 form.value.attributes = { ...(form.value.attributes || {}) };
 form.value.attributes.rich_text = { ...(form.value.attributes.rich_text || {}) };
-form.value.attributes.spectator_status = ['allowed','not_allowed'].includes(form.value.attributes.spectator_status) ? form.value.attributes.spectator_status : 'unknown';
+form.value.attributes.spectator_status = ['allowed','not_allowed'].includes(form.value.attributes.spectator_status) ? form.value.attributes.spectator_status : '';
 form.value.attributes.field_states ||= {};
 const regionAliases = { thailand: '泰国', thai: '泰国', china: '中国', oversea: '海外', overseas: '海外', '其他国家或地区': '海外', '泰国': '泰国', '中国': '中国', '海外': '海外' };
 form.value.attributes.region = regionAliases[String(form.value.attributes.region || '').toLowerCase()] || '';
@@ -418,7 +418,7 @@ onUnmounted(() => {
             </select></label
           >
           <div class="field">
-            <label class="field">围观情况<select v-model="form.attributes.spectator_status" aria-label="围观情况"><option value="unknown">待确认</option><option value="allowed">可围观</option><option value="not_allowed">不可围观</option></select></label>
+            <label class="field">围观情况<select v-model="form.attributes.spectator_status" aria-label="围观情况"><option value="">留空</option><option value="allowed">可围观</option><option value="not_allowed">不可围观</option></select></label>
             <small>根据官方说明确认；地址公开不代表允许围观。此选项不改变参与资格。</small>
             <ImageUpload @uploaded="pictureText = [pictureText, $event].filter(Boolean).join('\n')" />
             <small>FB 临时图片链接将在保存活动时转存到本站；无法读取时请上传原图。</small>
