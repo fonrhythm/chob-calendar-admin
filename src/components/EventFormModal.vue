@@ -412,8 +412,8 @@ onUnmounted(() => {
               required
             >
               <option value="">请选择</option>
-              <option v-for="c in conditions.filter((item) => !/仅(?:获得|限)资格者/.test(recordLabel(item)))" :key="c.code" :value="c.code">
-                {{ recordLabel(c) }}
+              <option v-for="c in conditions" :key="c.code" :value="c.code">
+                {{ c.code === 'qualified_only' ? '仅限获得资格者' : recordLabel(c) }}
               </option>
             </select></label
           >
