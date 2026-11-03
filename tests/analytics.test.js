@@ -22,6 +22,7 @@ test('analytics isolates identities, deduplicates, filters states and rejects no
  await db.exec(fs.readFileSync(new URL('../supabase/analytics.sql',import.meta.url),'utf8'));
  await db.exec(fs.readFileSync(new URL('../supabase/analytics-expanded.sql',import.meta.url),'utf8'));
  await db.exec(fs.readFileSync(new URL('../supabase/analytics-exploration.sql',import.meta.url),'utf8'));
+ await db.exec(fs.readFileSync(new URL('../supabase/analytics-quality.sql',import.meta.url),'utf8'));
  await assert.rejects(db.query('select chob_analytics()'),/仅管理员/);
  await db.exec("set test.admin='yes'");
  const query=async(filters={},subject=null)=>(await db.query('select chob_analytics($1,$2,0) d',[JSON.stringify(filters),subject])).rows[0].d;
