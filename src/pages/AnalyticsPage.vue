@@ -1,5 +1,6 @@
 <script setup>
 import {ref,onMounted} from 'vue';
+import AnalyticsChart from '@/components/AnalyticsChart.vue';
 import {supabase} from '@/config/supabase';
 import {ACTIVITY_TYPES} from '@/lib/activity-types';
 import {artistTypeLabels} from '@/lib/artistFilters';
@@ -31,10 +32,10 @@ onMounted(()=>query());
 <p v-if="busy" role="status">正在查询…</p>
 <div v-else class="bg-white rounded-xl p-5 overflow-x-auto">
 <table v-if="tab==='rankings'" class="w-full text-left"><thead><tr><th>排名</th><th>主体</th><th>活动次数</th><th>活动占比</th></tr></thead><tbody><tr v-for="r in data.rankings" :key="r.id"><td>{{r.position}}</td><td>{{r.name}}{{r.archived?'（历史资料）':''}}</td><td><button class="text-primary-600 underline" @click="detail(r)">{{r.n}} · 查看活动</button></td><td>{{percent(r.n,data.total)}}</td></tr></tbody></table>
-<template v-else-if="tab==='categories'||tab==='months'"><div v-for="r in (tab==='categories'?data.categories:data.months)" :key="r.category||r.month_key" class="py-3"><div class="flex justify-between"><span>{{r.month_key||label(r.category)}}</span><span>{{r.n}} 场</span></div><meter :value="r.n" :max="Math.max(data.total,1)" class="w-full" /></div></template>
+<AnalyticsChart v-else-if="tab==='categories'||tab==='months'" :mode="tab" :rows="tab==='categories'?data.categories:data.months" :total="data.total" :start="applied?.start" :end="applied?.end" />
 <template v-else-if="tab==='details'"><p class="mb-3">{{subject?'所选主体':'筛选范围'}}对应 {{data.detail_total}} 场活动</p><table class="w-full text-left"><tbody><tr v-for="r in data.details" :key="r.id"><td>{{r.date||'日期待定'}}</td><td>{{r.title}}</td><td>{{label(r.category)}}</td><td>{{r.city}}</td></tr></tbody></table></template>
 <template v-else><p class="mb-3">全库数据质量：{{data.quality_total}} 条需要核对（不受上方筛选影响）</p><table class="w-full text-left"><tbody><tr v-for="r in data.quality" :key="r.id"><td>{{r.date||'日期待定'}}</td><td>{{r.title}}<small class="block text-gray-400">{{r.id}}</small></td><td class="text-amber-700">{{r.issue}}</td></tr></tbody></table></template>
 <p v-if="(tab==='rankings'&&!data.rankings.length)||(tab==='details'&&!data.details.length)" class="py-8 text-gray-500">此范围没有可统计的活动。</p>
 <div v-if="['rankings','details','quality'].includes(tab)" class="flex gap-4 mt-5"><button :disabled="page===0" @click="turn(-1)">上一页</button><span>第 {{page+1}} 页 · 每页100条</span><button :disabled="(page+1)*100>=(tab==='rankings'?data.participating:tab==='details'?data.detail_total:data.quality_total)" @click="turn(1)">下一页</button></div>
 </div></template></section></template>
-<style scoped>.input{display:block;width:100%;border:1px solid #d1d5db;border-radius:8px;padding:9px;margin-top:6px;background:white}label{font-size:14px}.card{background:white;border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:8px}.card span,small{color:#6b7280}.card b{font-size:28px}th,td{padding:14px 10px;border-bottom:1px solid #eee}button:disabled{opacity:.45}meter{height:14px}</style>
+<style scoped>.input{display:block;width:100%;border:1px solid #d1d5db;border-radius:8px;padding:9px;margin-top:6px;background:white}label{font-size:14px}.card{background:white;border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:8px}.card span,small{color:#6b7280}.card b{font-size:28px}th,td{padding:14px 10px;border-bottom:1px solid #eee}button:disabled{opacity:.45}</style>
