@@ -1,0 +1,17 @@
+<script setup>
+import {computed} from 'vue';
+const props=defineProps({rows:{type:Array,default:()=>[]},grain:{type:String,default:'month'}});
+const emit=defineEmits(['select-period']);
+const names={day:'每日',week:'每周',month:'每月',quarter:'每季度',year:'每年'};
+const max=computed(()=>Math.max(4,Math.ceil(Math.max(...props.rows.map(r=>Number(r.n)),1)/4)*4));
+const width=computed(()=>Math.max(820,props.rows.length*58+64));
+const step=computed(()=>(width.value-64)/Math.max(props.rows.length,1));
+const periodLabel=p=>props.grain==='year'?p.slice(0,4):props.grain==='quarter'?p.slice(0,4)+' Q'+Math.ceil(Number(p.slice(5,7))/3):props.grain==='month'?p.slice(0,7):p.slice(5,10);
+const peak=computed(()=>props.rows.reduce((a,b)=>Number(b.n)>Number(a.n)?b:a,{n:0}));
+</script>
+<template><section aria-label="时间趋势柱状图"><div class="heading"><div><p class="eyebrow">ACTIVITY OVER TIME</p><h2>{{names[grain]}}活动趋势</h2><p class="caption">已收录活动数 · 点击柱子查看活动 · {{grain==='week'?'日期为周一起始日，边界周只计筛选范围内活动。':'边界周期只计筛选范围内活动。'}}</p></div><p v-if="peak.n" class="peak">收录最多 <strong>{{peak.period}} · {{peak.n}} 场</strong></p></div>
+<p v-if="!rows.length" class="empty">当前范围没有可展示的数据。</p><template v-else><div class="scroll"><svg :viewBox="'0 0 '+width+' 310'" :style="{minWidth:width+'px'}" role="img" :aria-label="names[grain]+'已收录活动数量'">
+<g v-for="tick in [0,1,2,3,4]" :key="tick"><line x1="42" :x2="width-12" :y1="248-tick*50" :y2="248-tick*50" stroke="#E9EDF2" :stroke-dasharray="tick?'3 5':undefined"/><text x="32" :y="252-tick*50" text-anchor="end" class="axis">{{max*tick/4}}</text></g>
+<g v-for="(r,i) in rows" :key="r.period"><rect :x="48+i*step" y="25" :width="step-4" height="225" rx="6" fill="transparent"/><rect :x="48+i*step+step*.2" :y="248-r.n/max*190" :width="step*.54" :height="r.n?r.n/max*190:2" rx="4" :fill="r.n?'#6F8FBD':'#E5EAF1'"/><text v-if="r.n" :x="48+i*step+step*.47" :y="237-r.n/max*190" text-anchor="middle" class="value">{{r.n}}</text><text :x="48+i*step+step*.47" y="274" text-anchor="middle" class="axis">{{periodLabel(r.period)}}</text><text v-if="i===0||r.period.endsWith('-01-01')" :x="48+i*step+step*.47" y="293" text-anchor="middle" class="year">{{r.period.slice(0,4)}}</text><rect v-if="r.n" class="hit" :x="48+i*step" y="25" :width="step-4" height="225" rx="6" fill="transparent" tabindex="0" role="button" :aria-label="r.period+'，'+r.n+'场，查看活动'" @click="emit('select-period',r.period)" @keydown.enter="emit('select-period',r.period)" @keydown.space.prevent="emit('select-period',r.period)"><title>{{r.period}} · {{r.n}} 场已收录活动</title></rect></g>
+</svg></div><p v-if="rows.length>14" class="caption">日期较多时可横向滚动，或切换为周／月查看。</p></template></section></template>
+<style scoped>.heading{display:flex;justify-content:space-between;gap:18px;margin-bottom:24px}.eyebrow{font-size:10px;letter-spacing:2px;color:#7c8ba3;margin-bottom:7px}h2{font-size:20px;font-weight:650;color:#253247}.caption{font-size:12px;color:#8590a1;margin-top:8px;line-height:1.6}.peak{font-size:11px;color:#8590a1;flex-shrink:0}.peak strong{display:block;color:#4f6491;font-size:15px;margin-top:6px}.scroll{overflow-x:auto}svg{display:block;width:100%;font-family:inherit}.axis{font-size:10px;fill:#8c96a4}.year{font-size:9px;fill:#a3adbb}.value{font-size:12px;font-weight:600;fill:#455a7a}.hit{cursor:pointer;outline:none}.hit:hover,.hit:focus-visible{fill:#6f8fbd12;stroke:#9aafcd;stroke-width:1}.empty{padding:48px;text-align:center;color:#8590a1}@media(max-width:600px){.heading{flex-direction:column}.peak strong{display:inline;margin-left:8px}}</style>

@@ -21,6 +21,7 @@ test('analytics isolates identities, deduplicates, filters states and rejects no
  ('5','Merged','2026-11-04','Bangkok','published',null,'{"merged_into":"3","artist_selections":["a"]}');`);
  await db.exec(fs.readFileSync(new URL('../supabase/analytics.sql',import.meta.url),'utf8'));
  await db.exec(fs.readFileSync(new URL('../supabase/analytics-expanded.sql',import.meta.url),'utf8'));
+ await db.exec(fs.readFileSync(new URL('../supabase/analytics-exploration.sql',import.meta.url),'utf8'));
  await assert.rejects(db.query('select chob_analytics()'),/仅管理员/);
  await db.exec("set test.admin='yes'");
  const query=async(filters={},subject=null)=>(await db.query('select chob_analytics($1,$2,0) d',[JSON.stringify(filters),subject])).rows[0].d;
@@ -42,6 +43,17 @@ test('analytics isolates identities, deduplicates, filters states and rejects no
  const compared=await query({start:'2026-11-01',end:'2026-11-03'});assert.equal(compared.comparison.previous_total,1);assert.equal(compared.comparison.start,'2026-10-29');assert.equal(compared.rankings.find(r=>r.id==='a').previous_n,1);
  assert.equal((await query({participation:'ticket'})).total,1);
  assert.equal((await query({start:'2026-11-01',end:'2026-11-03'},'a')).subject_previous,1);
+ const searched=await query({search:'b'});assert.equal(searched.ranking_total,1);assert.equal(searched.rankings[0].id,'b');assert.equal(searched.total,4,'search must not shrink the event denominator');
+ const asc=await query({sort:'asc'});assert.equal(asc.rankings[0].id,'b');assert.equal(asc.rankings[1].id,'a');
+ const daily=await query({start:'2026-11-01',end:'2026-11-04',grain:'day'});assert.equal(daily.trend.length,4);assert.equal(daily.trend[3].n,0);assert.equal(daily.trend.reduce((n,r)=>n+r.n,0),3);
+ assert.equal((await query({start:'2026-11-01',end:'2026-11-03',grain:'week'})).trend[0].period,'2026-10-26');
+ assert.equal((await query({start:'2026-11-01',end:'2026-11-03',grain:'quarter'})).trend[0].period,'2026-10-01');
+ const cross=await query({row_dim:'region',col_dim:'category'});assert.equal(cross.cross_cells.reduce((n,c)=>n+c.n,0),4,'multiple artists must not duplicate geographic cells');
+ assert.equal((await query({row_dim:'region',col_dim:'category',cross_row_value:'泰国',cross_col_value:'music'})).detail_total,3);
+ assert.equal((await query({grain:'day',period_value:'2026-11-03'})).detail_total,1);
+ assert.equal((await query({search:'does not exist'})).ranking_total,0);
+ await assert.rejects(query({row_dim:'unsafe-sql'}),/分析选项/);
+ await assert.rejects(query({grain:'day',start:'2000-01-01',end:'2026-01-01'}),/最多选择十年/);
  await assert.rejects(query({start:'2026-12-01',end:'2026-01-01'}),/筛选范围/);
  }finally{await db.close();}
 });
