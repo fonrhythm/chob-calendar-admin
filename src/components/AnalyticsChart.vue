@@ -17,7 +17,7 @@ const months=computed(()=>{
 });
 const peak=computed(()=>months.value.reduce((a,b)=>b.n>a.n?b:a,{n:0,key:''}));
 const max=computed(()=>Math.max(...months.value.map(r=>r.n),1));
-const ceiling=computed(()=>{const step=10**Math.floor(Math.log10(max.value));return Math.ceil(max.value/step)*step;});
+const ceiling=computed(()=>{const step=10**Math.floor(Math.log10(max.value));return Math.max(4,Math.ceil((Math.ceil(max.value/step)*step)/4)*4);});
 const step=computed(()=>Math.max(56,740/Math.max(months.value.length,1)));
 const width=computed(()=>Math.max(820,months.value.length*step.value+64));
 const categoryMax=computed(()=>Math.max(...props.rows.map(r=>Number(r.n)),1));
