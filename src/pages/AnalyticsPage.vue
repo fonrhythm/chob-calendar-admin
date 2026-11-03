@@ -9,6 +9,7 @@ const now=new Date(),filters=ref({start:now.getFullYear()+'-01-01',end:now.getFu
 const data=ref(null),busy=ref(false),error=ref(''),tab=ref('rankings'),subject=ref(null),page=ref(0),applied=ref(null),exporting=ref(false);
 let request=0;
 const dirty=computed(()=>applied.value&&JSON.stringify(filters.value)!==JSON.stringify(applied.value));
+const participationLabels=ref({});
 const growth=(n,previous)=>previous?((n-previous)/previous*100).toFixed(1)+'%':n?'新增（上期为0）':'—';
 const matrixCount=(id,category)=>Number(data.value?.matrix.find(r=>r.id===id&&r.category===category)?.n||0);
 async function categoryRank(category){filters.value={...applied.value,category};tab.value='rankings';await query();}
@@ -19,7 +20,7 @@ const label=id=>ACTIVITY_TYPES.find(x=>x.id===id)?.name||id;
 async function query(reset=true){if(reset){if(tab.value==='profile')tab.value='rankings';page.value=0;subject.value=null;applied.value={...filters.value};}const token=++request;busy.value=true;error.value='';try{const {data:result,error:e}=await supabase.rpc('chob_analytics',{filters:applied.value,subject:subject.value,page_number:page.value});if(e)throw e;if(token===request)data.value=result;}catch(e){if(token===request){error.value=e.message;data.value=null;}}finally{if(token===request)busy.value=false;}}
 async function detail(row,view='profile'){subject.value=row.id;page.value=0;tab.value=view;await query(false);}
 async function turn(delta){page.value+=delta;await query(false);}
-async function changeTab(value){tab.value=value;subject.value=null;page.value=0;await query(false);}
+async function changeTab(value){const reload=subject.value!==null||page.value!==0;tab.value=value;subject.value=null;page.value=0;if(reload)await query(false);}
 async function download(){exporting.value=true;error.value='';const scope={...applied.value},target=subject.value,view=tab.value;try{
 let rows=[];for(let p=0;;p++){
  const {data:d,error:e}=await supabase.rpc('chob_analytics',{filters:scope,subject:target,page_number:p});if(e)throw e;
@@ -31,7 +32,7 @@ let rows=[];for(let p=0;;p++){
 }
 const url=URL.createObjectURL(new Blob([csvText(rows)],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='chob-'+view+'.csv';a.click();URL.revokeObjectURL(url);
 }catch(e){error.value=e.message;}finally{exporting.value=false;}}
-onMounted(()=>query());
+onMounted(async()=>{query();const {data:conditions}=await supabase.from('participation_conditions').select('code,name');participationLabels.value=Object.fromEntries((conditions||[]).map(c=>[c.code,c.name]));});
 </script>
 <template><section class="space-y-6"><header><h1 class="text-2xl font-bold">数据统计与分析</h1><p class="text-gray-500 mt-2">本数据基于 Chob Calendar 已收录活动，不代表行业全部活动。</p></header>
 <form @submit.prevent="query()" class="bg-white rounded-xl p-5 grid sm:grid-cols-3 gap-4">
@@ -41,7 +42,7 @@ onMounted(()=>query());
 <label>活动类别<select class="input" v-model="filters.category"><option value="">全部活动</option><option v-for="v in data?.options.categories||[]" :key="v" :value="v">{{label(v)}}</option></select></label>
 <label>地区<select class="input" v-model="filters.region"><option value="">全部地区</option><option v-for="v in ['泰国','中国','海外','待确认']" :key="v">{{v}}</option></select></label>
 <label>城市<select class="input" v-model="filters.city"><option value="">全部城市</option><option v-for="v in data?.options.cities||[]" :key="v">{{v}}</option></select></label>
-<label>对比周期<select class="input" v-model="filters.compare"><option value="previous">前一个等长周期</option><option value="year">去年同期</option></select></label><label>参与方式<select class="input" v-model="filters.participation"><option value="">全部参与方式</option><option v-for="v in data?.options.participation||[]" :key="v">{{v}}</option></select></label><label>活动范围<select class="input" v-model="filters.status"><option value="effective">有效且已发布</option><option value="all">全部发布及业务状态</option></select></label><button class="btn-primary rounded-lg" :disabled="busy">{{busy?'查询中…':'应用筛选'}}</button></form>
+<label>对比周期<select class="input" v-model="filters.compare"><option value="previous">前一个等长周期</option><option value="year">去年同期</option></select></label><label>参与方式<select class="input" v-model="filters.participation"><option value="">全部参与方式</option><option v-for="v in data?.options.participation||[]" :key="v" :value="v">{{participationLabels[v]||'其他参与方式'}}</option></select></label><label>活动范围<select class="input" v-model="filters.status"><option value="effective">有效且已发布</option><option value="all">全部发布及业务状态</option></select></label><button class="btn-primary rounded-lg" :disabled="busy">{{busy?'查询中…':'应用筛选'}}</button></form>
 <p v-if="dirty" role="status" class="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">筛选条件已修改，尚未应用。下方仍是上次查询结果。 <button class="underline" @click="query()">立即应用</button></p>
 <p v-if="error" role="alert" class="text-red-700">{{error}} <button @click="query(false)">重试</button></p>
 <template v-if="data"><div class="grid sm:grid-cols-4 gap-4"><div class="card"><span>筛选内独立活动</span><b>{{data.total}}</b></div><div class="card"><span>有活动的主体</span><b>{{data.participating}}</b></div><div class="card"><span>活跃主体 · 前50%含并列</span><b>{{data.active}}</b></div><div class="card"><span>主体覆盖率</span><b>{{percent(data.covered,data.catalog_total)}}</b><small>{{data.covered}} / {{data.catalog_total}} 个有效资料</small></div></div>
