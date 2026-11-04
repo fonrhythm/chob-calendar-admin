@@ -23,6 +23,7 @@ test('analytics isolates identities, deduplicates, filters states and rejects no
  await db.exec(fs.readFileSync(new URL('../supabase/analytics-expanded.sql',import.meta.url),'utf8'));
  await db.exec(fs.readFileSync(new URL('../supabase/analytics-exploration.sql',import.meta.url),'utf8'));
  await db.exec(fs.readFileSync(new URL('../supabase/analytics-quality.sql',import.meta.url),'utf8'));
+ await db.exec(fs.readFileSync(new URL('../supabase/analytics-attendance.sql',import.meta.url),'utf8'));
  await assert.rejects(db.query('select chob_analytics()'),/仅管理员/);
  await db.exec("set test.admin='yes'");
  const query=async(filters={},subject=null)=>(await db.query('select chob_analytics($1,$2,0) d',[JSON.stringify(filters),subject])).rows[0].d;
@@ -56,6 +57,12 @@ test('analytics isolates identities, deduplicates, filters states and rejects no
  await assert.rejects(query({row_dim:'unsafe-sql'}),/分析选项/);
  await assert.rejects(query({grain:'day',start:'2000-01-01',end:'2026-01-01'}),/最多选择十年/);
  await assert.rejects(query({start:'2026-12-01',end:'2026-01-01'}),/筛选范围/);
+ await db.exec(`update events set attributes=attributes||'{"monthly_lineups":[{"artist_id":"a","date":"2026-11-05"},{"artist_id":"a","date":"2026-11-04"},{"artist_id":"a","date":"2026-02-31"},{"artist_id":"b","date":"2026-12-01"}]}'::jsonb where id='prior';`);
+ const dates={start:'2026-11-01',end:'2026-11-30'};
+ assert.equal((await query(dates,'a')).detail_total,1);
+ const attended=await query({...dates,date_basis:'attendance'},'a');assert.equal(attended.detail_total,2);assert.equal(attended.details.find(r=>r.id==='prior').date,'2026-11-04');assert.equal(attended.months[0].n,2);
+ assert.equal((await query({start:'2026-12-01',end:'2026-12-31',date_basis:'attendance'},'a')).detail_total,0);
+ assert.equal((await db.query("select chob_private.analytics_date('2026-02-31') value")).rows[0].value,null);
  }finally{await db.close();}
 });
 test('CSV quotes unsafe text and handles empty denominators',()=>{assert.equal(csvCell('=1+1'),'"\'=1+1"');assert.equal(csvCell('a"b'),'"a""b"');assert.equal(percent(1,0),'—');});
