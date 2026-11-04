@@ -251,7 +251,15 @@ async function setCompletion(task, value) {
   } catch (e) { error.value = e.message; }
   finally { completionBusy.value = ''; }
 }
-onMounted(() => { load(); completionTimer = setInterval(() => { currentTime.value = Date.now(); }, 60000); });
+async function openLinkedEvent(){
+ const id=typeof route.query.edit==='string'?route.query.edit:'';
+ if(!id||!ready.value)return;
+ const target=workspace.value.events.find(e=>e.id===id);
+ if(target)edit(target);else error.value='该活动已不存在或已移入回收站，请返回统计页面重新查询。';
+ const query={...route.query};delete query.edit;await router.replace({query});
+}
+watch(()=>route.query.edit,()=>{if(!loading.value)openLinkedEvent();});
+onMounted(async () => { await load();await openLinkedEvent(); completionTimer = setInterval(() => { currentTime.value = Date.now(); }, 60000); });
 onUnmounted(() => clearInterval(completionTimer));
 </script>
 <template>
