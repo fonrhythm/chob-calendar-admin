@@ -11,12 +11,13 @@ create table artists(id uuid primary key);create table events(id uuid primary ke
 insert into artists values('00000000-0000-4000-8000-000000000002');`);
 await db.exec(fs.readFileSync(new URL('../supabase/drama-v1.sql',import.meta.url),'utf8'));
 const sid='00000000-0000-4000-8000-000000000003';
-const payload={id:sid,titleZh:'测试',types:['Bromance','群像'],cast:[{artistId:'00000000-0000-4000-8000-000000000002',role:'Sun'}],rules:[{id:'r',platformId:'youtube',premiere:'2026-12-25',time:'21:30',timezone:'Asia/Bangkok',totalEpisodes:4,episodesPerRelease:2,intervalDays:7}]};
+const payload={id:sid,titleZh:'测试',images:['https://example.com/poster.jpg','https://example.com/official-calendar.png'],types:['Bromance','群像'],cast:[{artistId:'00000000-0000-4000-8000-000000000002',role:'Sun'}],rules:[{id:'r',platformId:'youtube',premiere:'2026-12-25',time:'21:30',timezone:'Asia/Bangkok',totalEpisodes:4,episodesPerRelease:2,intervalDays:7}]};
 await db.exec('set role authenticated');
 await assert.rejects(db.query('select chob_drama_save($1,0)',[payload]),/仅管理员/);
 assert.equal((await db.query('select * from drama_series')).rows.length,0);
 await db.exec("set test.admin='yes'");
 await db.query('select chob_drama_save($1,0)',[payload]);
+assert.deepEqual((await db.query('select data from drama_series')).rows[0].data.images,payload.images);
 assert.equal((await db.query('select count(*)::int n from drama_airings')).rows[0].n,4);
 assert.equal((await db.query('select air_date::text d from drama_airings where episode=3')).rows[0].d,'2027-01-01');
 await assert.rejects(db.query('select chob_drama_save($1,0)',[payload]),/刷新/);
