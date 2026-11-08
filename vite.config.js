@@ -1,3 +1,4 @@
+import {dramaLocalData} from './scripts/dramaLocalData.js';
 import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import tailwindcss from '@tailwindcss/vite'
@@ -16,7 +17,7 @@ export default defineConfig(({ command, mode }) => {
 
   return {
     base: env.VITE_BASE_PATH || "/",
-    plugins: [vue(), tailwindcss()],
+    plugins: [dramaLocalData(true), vue(), tailwindcss()],
     css: { postcss: { plugins: [] } },
     resolve: {
       alias: {

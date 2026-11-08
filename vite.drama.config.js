@@ -1,0 +1,1 @@
+import {defineConfig} from 'vite';import vue from '@vitejs/plugin-vue';import {dramaLocalData} from './scripts/dramaLocalData.js';export default defineConfig({plugins:[dramaLocalData(true),vue()],server:{host:'127.0.0.1'},build:{outDir:'dist-drama-preview',rollupOptions:{input:'drama-preview.html'}}});

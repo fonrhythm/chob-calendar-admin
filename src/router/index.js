@@ -52,6 +52,7 @@ const routes = [
     component: DashboardLayout,
     meta: { requiresAuth: true },
     children: [
+      ...(import.meta.env.DEV ? [{path:'drama',name:'Drama',component:()=>import('@/drama/DramaManager.vue'),meta:{title:'剧集管理',adminOnly:true}}] : []),
       {path:'analytics',name:'Analytics',component:()=>import('@/pages/AnalyticsPage.vue'),meta:{title:'数据统计与分析',adminOnly:true}},
       {
         path: 'community',

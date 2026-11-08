@@ -25,6 +25,7 @@ const items = computed(() => [
     : []),
   ...(auth.userProfile?.role === 'admin'
     ? [
+        ...(import.meta.env.DEV ? [{path:'/drama',label:'剧集管理'}] : []),
         { path: '/analytics', label: '数据统计与分析' },
         { path: '/community', label: '消息与核实' },
         { path: '/announcements', label: '消息/公告管理' },

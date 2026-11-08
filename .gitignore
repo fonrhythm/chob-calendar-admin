@@ -6,3 +6,5 @@ dist/
 *.log
 
 .chob-backups/
+
+/dist-drama-preview/

@@ -1,0 +1,1 @@
+import {createApp} from 'vue';import Manager from './DramaManager.vue';createApp(Manager).mount('#app');
