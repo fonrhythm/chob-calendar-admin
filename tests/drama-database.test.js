@@ -31,6 +31,11 @@ assert.equal((await db.query("select count(*)::int n from drama_airings where st
 assert.equal((await db.query('select count(*)::int n from drama_notices')).rows[0].n,1);
 await assert.rejects(db.query('select chob_drama_save($1,3)',[{...payload,rules:[]}]),/变动历史/);
 await db.query('insert into drama_drafts(id,data) values($1,$2)',[sid,{titleZh:''}]);
+const weeklyId='00000000-0000-4000-8000-000000000004';
+const weekly={...payload,id:weeklyId,rules:[{...payload.rules[0],premiere:'2026-11-05',weekdays:[4,5],totalEpisodes:6,episodesPerRelease:1,phases:[{from:'2026-11-12',weekdays:[4,0]}]}]};
+await db.query('select chob_drama_save($1,0)',[weekly]);
+assert.deepEqual((await db.query('select air_date::text d from drama_airings where series_id=$1 order by episode',[weeklyId])).rows.map(r=>r.d),['2026-11-05','2026-11-06','2026-11-12','2026-11-15','2026-11-19','2026-11-22']);
+await assert.rejects(db.query('select chob_drama_save($1,1)',[{...weekly,rules:[{...weekly.rules[0],weekdays:[]}]}]),/播出日/);
 await db.exec("set test.admin='no'");assert.equal((await db.query('select * from drama_series')).rows.length,0);assert.equal((await db.query('select * from drama_drafts')).rows.length,0);
 await db.exec('reset role;set role anon');await assert.rejects(db.query('select * from drama_series'),/permission denied/);
 await db.exec('reset role');assert.equal((await db.query('select enabled from drama_release')).rows[0].enabled,false);

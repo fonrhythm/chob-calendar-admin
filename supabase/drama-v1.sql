@@ -70,7 +70,7 @@ do $$ declare t text; begin
 end $$;
 create or replace function public.chob_drama_save(payload jsonb,expected_version integer default 0) returns jsonb
 language plpgsql security invoker set search_path='' as $$
-declare sid uuid := coalesce(nullif(payload->>'id','')::uuid,gen_random_uuid()); current_row public.drama_series; c jsonb;r jsonb;ep integer;total integer;per_release integer;interval_days integer;first_day date;rule_id text;tz text;tm time;
+declare sid uuid := coalesce(nullif(payload->>'id','')::uuid,gen_random_uuid()); current_row public.drama_series; c jsonb;r jsonb;ep integer;total integer;per_release integer;interval_days integer;first_day date;rule_id text;tz text;tm time;weekly boolean;days jsonb;phase jsonb;candidate date;release_day boolean;batch integer;phase_dates text[];
 begin
  if not chob_private.is_admin() then raise exception '仅管理员可以执行此操作' using errcode='42501';end if;
  select * into current_row from public.drama_series where id=sid for update;
@@ -99,9 +99,38 @@ begin
    if total is null or total not between 1 and 1000 or per_release not between 1 and 1000 or interval_days not between 1 and 1000 then raise exception '集数和周期必须在 1–1000 之间';end if;
    tz:=r->>'timezone';tm:=(r->>'time')::time;
    if tm is null or not exists(select 1 from pg_catalog.pg_timezone_names where name=tz) then raise exception '时间或时区无效';end if;
-   for ep in 1..total loop
-    insert into public.drama_airings(id,series_id,rule_id,episode,platform_id,air_date,air_time,timezone,confidence)
-    values(sid::text||':'||rule_id||':'||ep,sid,rule_id,ep,r->>'platformId',first_day+((ep-1)/per_release)*interval_days,tm,tz,case when ep=1 then 'confirmed' else 'calculated' end);
+   weekly:=r ? 'weekdays';
+   if weekly then
+    days:=r->'weekdays';
+    if jsonb_typeof(days)<>'array' then raise exception '请选择播出日';end if;
+    if jsonb_array_length(days)=0 or exists(select 1 from jsonb_array_elements(days) d where d::text not in ('0','1','2','3','4','5','6')) then raise exception '播出日无效';end if;
+    if not days @> jsonb_build_array(extract(dow from first_day)::integer) then raise exception '首播日期必须属于选定的播出日';end if;
+   end if;
+   if jsonb_typeof(coalesce(r->'phases','[]'::jsonb))<>'array' then raise exception '播出阶段格式无效';end if;
+   phase_dates:=array[]::text[];
+   for phase in select value from jsonb_array_elements(coalesce(r->'phases','[]'::jsonb)) loop
+    if not weekly or coalesce(phase->>'from','')='' or (phase->>'from')::date<=first_day or phase->>'from'=any(phase_dates) then raise exception '调整生效日必须晚于首播日且不能重复';end if;
+    phase_dates:=array_append(phase_dates,phase->>'from');
+    if jsonb_typeof(phase->'weekdays') is distinct from 'array' then raise exception '调整播出日无效';end if;
+    if jsonb_array_length(phase->'weekdays')=0 or exists(select 1 from jsonb_array_elements(phase->'weekdays') d where d::text not in ('0','1','2','3','4','5','6')) then raise exception '调整播出日无效';end if;
+   end loop;
+   ep:=1;candidate:=first_day;
+   while ep<=total loop
+    if weekly then
+     days:=r->'weekdays';
+     select value into phase from jsonb_array_elements(coalesce(r->'phases','[]'::jsonb)) where (value->>'from')::date<=candidate order by (value->>'from')::date desc limit 1;
+     if found then days:=phase->'weekdays';end if;
+     release_day:=days @> jsonb_build_array(extract(dow from candidate)::integer);
+    else release_day:=true;end if;
+    if release_day then
+     for batch in 1..per_release loop
+      exit when ep>total;
+      insert into public.drama_airings(id,series_id,rule_id,episode,platform_id,air_date,air_time,timezone,confidence)
+      values(sid::text||':'||rule_id||':'||ep,sid,rule_id,ep,r->>'platformId',candidate,tm,tz,case when ep=1 then 'confirmed' else 'calculated' end);
+      ep:=ep+1;
+     end loop;
+    end if;
+    candidate:=candidate+case when weekly then 1 else interval_days end;
    end loop;
   end loop;
  end if;

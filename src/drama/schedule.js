@@ -17,11 +17,19 @@ export function generateSchedule(drama, rule) {
   for (const value of [totalEpisodes, intervalDays, episodesPerRelease]) if (!Number.isSafeInteger(value) || value < 1 || value > 1000) throw Error('集数与播出周期必须为有效正整数');
   if (!drama.id || !rule.id || !rule.platformId || !rule.timezone || !/^([01]\d|2[0-3]):[0-5]\d$/.test(rule.time || '')) throw Error('排播需要剧集、规则、平台、时区和播出时间');
   try { new Intl.DateTimeFormat('en', {timeZone: rule.timezone}); } catch { throw Error('时区无效'); }
-  return Array.from({length: totalEpisodes}, (_, i) => {
-    const date = new Date(+first);
-    date.setUTCDate(date.getUTCDate() + Math.floor(i / episodesPerRelease) * intervalDays);
-    return {id: `${drama.id}:${rule.id}:${i+1}`, dramaId: drama.id, ruleId: rule.id, episode: i+1, platformId: rule.platformId, date: date.toISOString().slice(0,10), time: rule.time, timezone: rule.timezone, confidence: i === 0 ? 'confirmed' : 'calculated', status: 'scheduled'};
-  });
+  function validDays(days){if(!Array.isArray(days)||!days.length||days.some(d=>!Number.isInteger(d)||d<0||d>6))throw Error('请选择有效的每周播出日');return days;}
+  const weekly=Object.hasOwn(rule,'weekdays');
+  if(weekly)validDays(rule.weekdays);
+  const phases=rule.phases||[];if(!Array.isArray(phases)||(!weekly&&phases.length))throw Error('请先选择每周播出日');const seen=new Set();
+  for(const phase of phases){validDays(phase.weekdays);const date=new Date(`${phase.from}T00:00:00Z`);if(!/^\d{4}-\d{2}-\d{2}$/.test(phase.from||'')||!Number.isFinite(+date)||date.toISOString().slice(0,10)!==phase.from||phase.from<=rule.premiere||seen.has(phase.from))throw Error('调整生效日必须晚于首播日，且不能重复');seen.add(phase.from);}
+  if(weekly&&!rule.weekdays.includes(first.getUTCDay()))throw Error('首播日期必须属于选定的播出日');
+  const dates=[];let day=new Date(+first);
+  while(dates.length<totalEpisodes){const key=day.toISOString().slice(0,10);let days=rule.weekdays;for(const phase of [...phases].sort((a,b)=>a.from.localeCompare(b.from)))if(key>=phase.from)days=phase.weekdays;
+   const release=weekly?days.includes(day.getUTCDay()):true;
+   if(release)for(let n=0;n<episodesPerRelease&&dates.length<totalEpisodes;n++)dates.push(key);
+   day.setUTCDate(day.getUTCDate()+(weekly?1:intervalDays));
+  }
+  return dates.map((date,i)=>({id:`${drama.id}:${rule.id}:${i+1}`,dramaId:drama.id,ruleId:rule.id,episode:i+1,platformId:rule.platformId,date,time:rule.time,timezone:rule.timezone,confidence:i===0?'confirmed':'calculated',status:'scheduled'}));
 }
 export function reschedule(slot, replacement, announcement) {
   if (!announcement?.id || !announcement?.content?.trim()) throw Error('请填写变动公告');
