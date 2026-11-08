@@ -557,7 +557,7 @@ onUnmounted(() => {
                     step="1"
                   /><small>不填为当天 00:00</small></label
                 ><label class="field"
-                  >结束日期（开票可留空，售完即止）<input
+                  >{{ task.task_type === 'ticketing' ? '结束日期（可留空，售完即止；填写结束时间时必填）' : '结束日期（发布时必填）' }}<input
                     v-model="task.end_date"
                     :aria-label="`事项${index + 1}结束日期`"
                     type="date"
