@@ -21,8 +21,9 @@ export function generateSchedule(drama, rule) {
   const weekly=Object.hasOwn(rule,'weekdays');
   if(weekly)validDays(rule.weekdays);
   const phases=rule.phases||[];if(!Array.isArray(phases)||(!weekly&&phases.length))throw Error('请先选择每周播出日');const seen=new Set();
-  for(const phase of phases){validDays(phase.weekdays);const date=new Date(`${phase.from}T00:00:00Z`);if(!/^\d{4}-\d{2}-\d{2}$/.test(phase.from||'')||!Number.isFinite(+date)||date.toISOString().slice(0,10)!==phase.from||phase.from<=rule.premiere||seen.has(phase.from))throw Error('调整生效日必须晚于首播日，且不能重复');seen.add(phase.from);}
-  if(weekly&&!rule.weekdays.includes(first.getUTCDay()))throw Error('首播日期必须属于选定的播出日');
+  for(const phase of phases){validDays(phase.weekdays);const date=new Date(`${phase.from}T00:00:00Z`);if(!/^\d{4}-\d{2}-\d{2}$/.test(phase.from||'')||!Number.isFinite(+date)||date.toISOString().slice(0,10)!==phase.from||phase.from<rule.premiere||seen.has(phase.from))throw Error('调整生效日不能早于首播日，且不能重复');seen.add(phase.from);}
+  const premiereDays=phases.find(p=>p.from===rule.premiere)?.weekdays||rule.weekdays;
+  if(weekly&&!premiereDays.includes(first.getUTCDay()))throw Error('首播日期必须属于选定的播出日');
   const dates=[];let day=new Date(+first);
   while(dates.length<totalEpisodes){const key=day.toISOString().slice(0,10);let days=rule.weekdays;for(const phase of [...phases].sort((a,b)=>a.from.localeCompare(b.from)))if(key>=phase.from)days=phase.weekdays;
    const release=weekly?days.includes(day.getUTCDay()):true;

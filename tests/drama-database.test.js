@@ -36,6 +36,8 @@ const weekly={...payload,id:weeklyId,rules:[{...payload.rules[0],premiere:'2026-
 await db.query('select chob_drama_save($1,0)',[weekly]);
 assert.deepEqual((await db.query('select air_date::text d from drama_airings where series_id=$1 order by episode',[weeklyId])).rows.map(r=>r.d),['2026-11-05','2026-11-06','2026-11-12','2026-11-15','2026-11-19','2026-11-22']);
 await assert.rejects(db.query('select chob_drama_save($1,1)',[{...weekly,rules:[{...weekly.rules[0],weekdays:[]}]}]),/播出日/);
+await db.query('select chob_drama_save($1,1)',[{...weekly,rules:[{...weekly.rules[0],weekdays:[5],phases:[{from:'2026-11-05',weekdays:[4,0]}]}]}]);
+assert.equal((await db.query('select air_date::text d from drama_airings where series_id=$1 and episode=2',[weeklyId])).rows[0].d,'2026-11-08');
 await db.exec("set test.admin='no'");assert.equal((await db.query('select * from drama_series')).rows.length,0);assert.equal((await db.query('select * from drama_drafts')).rows.length,0);
 await db.exec('reset role;set role anon');await assert.rejects(db.query('select * from drama_series'),/permission denied/);
 await db.exec('reset role');assert.equal((await db.query('select enabled from drama_release')).rows[0].enabled,false);

@@ -104,16 +104,22 @@ begin
     days:=r->'weekdays';
     if jsonb_typeof(days)<>'array' then raise exception '请选择播出日';end if;
     if jsonb_array_length(days)=0 or exists(select 1 from jsonb_array_elements(days) d where d::text not in ('0','1','2','3','4','5','6')) then raise exception '播出日无效';end if;
-    if not days @> jsonb_build_array(extract(dow from first_day)::integer) then raise exception '首播日期必须属于选定的播出日';end if;
+    
    end if;
    if jsonb_typeof(coalesce(r->'phases','[]'::jsonb))<>'array' then raise exception '播出阶段格式无效';end if;
    phase_dates:=array[]::text[];
    for phase in select value from jsonb_array_elements(coalesce(r->'phases','[]'::jsonb)) loop
-    if not weekly or coalesce(phase->>'from','')='' or (phase->>'from')::date<=first_day or phase->>'from'=any(phase_dates) then raise exception '调整生效日必须晚于首播日且不能重复';end if;
+    if not weekly or coalesce(phase->>'from','')='' or (phase->>'from')::date<first_day or phase->>'from'=any(phase_dates) then raise exception '调整生效日不能早于首播日且不能重复';end if;
     phase_dates:=array_append(phase_dates,phase->>'from');
     if jsonb_typeof(phase->'weekdays') is distinct from 'array' then raise exception '调整播出日无效';end if;
     if jsonb_array_length(phase->'weekdays')=0 or exists(select 1 from jsonb_array_elements(phase->'weekdays') d where d::text not in ('0','1','2','3','4','5','6')) then raise exception '调整播出日无效';end if;
    end loop;
+   if weekly then
+    days:=r->'weekdays';
+    select value into phase from jsonb_array_elements(coalesce(r->'phases','[]'::jsonb)) where (value->>'from')::date=first_day limit 1;
+    if found then days:=phase->'weekdays';end if;
+    if not days @> jsonb_build_array(extract(dow from first_day)::integer) then raise exception '首播日期必须属于选定的播出日';end if;
+   end if;
    ep:=1;candidate:=first_day;
    while ep<=total loop
     if weekly then
