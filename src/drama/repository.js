@@ -8,6 +8,7 @@ export function createDramaRepository(client) {
   async deleteDraft(id){return check(await client.from('drama_drafts').delete().eq('id',id));},
   async change(slot,form,version){return check(await client.rpc('chob_drama_change',{airing_id:slot.id,new_date:form.date,new_time:form.time,content:form.content,expected_version:version}));},
   async saveEvent(event){return check(await client.from('drama_event_links').insert({id:event.id,series_id:event.dramaId,data:event}));},
+  async createPlatform(platform){return check(await client.from('drama_platforms').insert(platform).select().single());},
   async savePlatform(platform){return check(await client.from('drama_platforms').upsert(platform));}
  };
 }
