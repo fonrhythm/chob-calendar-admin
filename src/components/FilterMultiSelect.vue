@@ -1,4 +1,5 @@
 <script setup>
+import {toggleFilterSelection} from '../lib/filterSelection.js';
 import { computed, ref } from 'vue';
 const props = defineProps({
   modelValue: { type: Array, default: null },
@@ -12,10 +13,10 @@ const count = computed(() => props.options.filter(o => selected.value.includes(o
 const all = computed(() => props.options.length > 0 && count.value === props.options.length);
 const visible = computed(() => props.options.filter(o => o.label.toLocaleLowerCase().includes(query.value.trim().toLocaleLowerCase())));
 const summary = computed(() => props.modelValue === null || all.value ? `全部${props.label}` : count.value === 0 ? `未选择${props.label}` : props.options.filter(o => selected.value.includes(o.value)).map(o => o.label).join('、'));
-function toggle(value, checked) {
-  const next = new Set(selected.value);
-  checked ? next.add(value) : next.delete(value);
-  emit('update:modelValue', props.options.every(o => next.has(o.value)) ? null : [...next]);
+function toggle(value,event){
+ const next=toggleFilterSelection(props.modelValue,value,props.options.map(option=>option.value));
+ event.target.checked=next===null||next.includes(value);
+ emit('update:modelValue',next);
 }
 </script>
 
@@ -32,7 +33,7 @@ function toggle(value, checked) {
       </div>
       <div class="max-h-64 overflow-y-auto space-y-1">
         <label v-for="option in visible" :key="option.value" class="flex gap-2 items-center rounded px-2 py-2 hover:bg-gray-50 cursor-pointer text-sm">
-          <input type="checkbox" :checked="selected.includes(option.value)" @change="toggle(option.value, $event.target.checked)" />{{ option.label }}
+          <input type="checkbox" :checked="selected.includes(option.value)" @change="toggle(option.value, $event)" />{{ option.label }}
         </label>
         <p v-if="!visible.length" class="text-sm text-gray-500 py-2">没有匹配选项</p>
       </div>

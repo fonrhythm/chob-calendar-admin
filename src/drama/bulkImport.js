@@ -16,8 +16,8 @@ export function prepareDramaImport(grid,catalog){
  return rows.map(({cells,line})=>{let title='';try{
   const raw=Object.fromEntries(headers.flatMap((k,i)=>k?[[k,(cells[i] instanceof Date?cells[i].toISOString().slice(0,10):String(cells[i]??'').trim())]]:[]));title=raw.titleZh||raw.titleEn||raw.titleTh||'';
   const names=[raw.titleZh,raw.titleEn,raw.titleTh].map(norm).filter(Boolean);if(names.some(n=>existing.has(n)||seen.has(n)))throw Error('剧名已存在或在本文件重复，本功能仅新增，不覆盖已有资料');
-  const data={id:crypto.randomUUID(),titleZh:raw.titleZh||'',titleEn:raw.titleEn||'',titleTh:raw.titleTh||'',types:split(raw.types).map(t=>({'BL':'Boys Love','GL':'Girls Love','BG':'BG','bromance':'Bromance','群像':'群像','其他':'其他'}[t]||t)),production:raw.production||'未开机',productionCompany:raw.productionCompany||'',images:split(raw.images),synopsis:raw.synopsis||'',source:raw.source||'',cast:[],rules:[]};
-  if(!['未开机','已开机','已杀青'].includes(data.production))throw Error('制作进度仅支持未开机、已开机、已杀青');
+  const data={id:crypto.randomUUID(),titleZh:raw.titleZh||'',titleEn:raw.titleEn||'',titleTh:raw.titleTh||'',types:split(raw.types).map(t=>({'BL':'Boys Love','GL':'Girls Love','BG':'BG','bromance':'Bromance','群像':'群像','其他':'其他'}[t]||t)),production:raw.production||'',productionCompany:raw.productionCompany||'',images:split(raw.images),synopsis:raw.synopsis||'',source:raw.source||'',cast:[],rules:[]};
+  if(data.production&&!['未开机','已开机','已杀青'].includes(data.production))throw Error('制作进度仅支持未开机、已开机、已杀青');
   if(data.productionCompany&&!catalog.companies.some(c=>norm(c)===norm(data.productionCompany)))throw Error('出品公司不在现有公司资料中');
   if(data.source&&!/^https?:\/\//i.test(data.source))throw Error('官方来源必须是 http/https 链接');
   data.poster=data.images[0]||'';

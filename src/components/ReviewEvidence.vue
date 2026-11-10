@@ -12,14 +12,14 @@ const candidates=computed(()=>(props.review?.candidates||[]).map(id=>props.event
  <article>
   <h3>{{title}}</h3>
   <p>{{source?.account||'账号待核验'}} · {{source?.published_at?new Date(source.published_at).toLocaleString('zh-CN'):'发布时间未记录'}} · 待审核</p>
-  <p><a v-if="source?.url" :href="source.url" target="_blank" rel="noopener noreferrer">打开原帖核验 ↗</a></p>
+  <p><a v-if="source?.url" :href="source.url" target="_blank" rel="noopener noreferrer">打开原帖核验</a></p>
   <table v-if="rows.length"><tbody><tr v-for="r in rows" :key="r.label"><th scope="row">{{r.label}}</th><td>{{Array.isArray(r.value)?r.value.join(' / '):r.value}}</td></tr></tbody></table>
   <p v-else>尚无通过证据校验的活动字段，请先核对下面的采集备注。</p>
   <h4>待核验事项</h4>
   <ul><li>{{review.reason}}</li><li v-for="(note,index) in evidence.observations||[]" :key="index">{{note}}</li></ul>
   <p v-if="raw.image_transcriptions?.length>1">本帖包含 {{raw.image_transcriptions.length}} 张已转录图片，请核对是否属于不同活动；批准当前表单只保存一个活动。</p>
   <div v-if="candidates.length"><h4>可能关联的已有活动</h4><ul><li v-for="e in candidates" :key="e.id">{{e.title}} · {{e.date}} · {{e.location}}</li></ul></div>
-  <details><summary>查看原始证据</summary><p>{{raw.capture||'原始正文'}}</p><pre>{{raw.text}}</pre><pre v-if="evidence.translations?.zh">{{evidence.translations.zh}}</pre><details v-for="image in raw.image_transcriptions||[]" :key="image.url"><summary>图片转录（{{image.url.split('/').at(-1)}}）</summary><a :href="image.url" target="_blank" rel="noopener noreferrer">打开原图 ↗</a><p>{{image.capture}}</p><pre>{{image.text}}</pre></details></details>
+  <details><summary>查看原始证据</summary><p>{{raw.capture||'原始正文'}}</p><pre>{{raw.text}}</pre><pre v-if="evidence.translations?.zh">{{evidence.translations.zh}}</pre><details v-for="image in raw.image_transcriptions||[]" :key="image.url"><summary>图片转录（{{image.url.split('/').at(-1)}}）</summary><a :href="image.url" target="_blank" rel="noopener noreferrer">打开原图</a><p>{{image.capture}}</p><pre>{{image.text}}</pre></details></details>
   <details><summary>技术数据（排查问题时查看）</summary><pre>{{JSON.stringify(evidence.extraction||{},null,2)}}</pre></details>
  </article>
 </template>
