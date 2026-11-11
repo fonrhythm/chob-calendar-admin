@@ -183,6 +183,16 @@ test('community workflow enforces ownership, edit limits, immediate flags, reply
         tags: { ['supabase:' + id]: '待开票' },
       },
     ]);
+    // Whole-series favorites coexist with existing events and never become personal event items.
+    await call('chob_save_personal', [{nickname:'Fan',favorites:['supabase:'+id,'drama:series-one'],artist_favorites:[],items:['supabase:'+id],tags:{['supabase:'+id]:'待开票'}}]);
+    let dramaPersonal=(await db.query('select * from chob_personal')).rows[0];
+    assert.deepEqual([...dramaPersonal.favorites].sort(),['supabase:'+id,'drama:series-one'].sort());
+    assert.deepEqual(dramaPersonal.items,['supabase:'+id]);
+    assert.equal(dramaPersonal.tags['supabase:'+id],'待开票');
+    await as(other);
+    assert.equal((await db.query('select * from chob_personal')).rows.length,0);
+    await as(fan);
+    assert.ok((await db.query('select * from chob_personal')).rows[0].favorites.includes('drama:series-one'));
     await assert.rejects(
       call('chob_save_personal', [
         {

@@ -13,7 +13,7 @@ export function generateSchedule(drama, rule) {
   if (!rule?.premiere) return [];
   const first = new Date(`${rule.premiere}T00:00:00Z`);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(rule.premiere) || !Number.isFinite(+first) || first.toISOString().slice(0,10) !== rule.premiere) throw Error('首播日期无效');
-  const {totalEpisodes, intervalDays = 7, episodesPerRelease = 1} = rule;
+  const {intervalDays = 7, episodesPerRelease = 1} = rule;const unknown=rule.totalEpisodesUnknown===true;const totalEpisodes=unknown?1000:rule.totalEpisodes;const horizon=new Date(Math.max(+first,+new Date(new Date().toISOString().slice(0,10)+'T00:00:00Z'))+90*86400000);
   for (const value of [totalEpisodes, intervalDays, episodesPerRelease]) if (!Number.isSafeInteger(value) || value < 1 || value > 1000) throw Error('集数与播出周期必须为有效正整数');
   if (!drama.id || !rule.id || !rule.platformId || !rule.timezone || !/^([01]\d|2[0-3]):[0-5]\d$/.test(rule.time || '')) throw Error('排播需要剧集、规则、平台、时区和播出时间');
   try { new Intl.DateTimeFormat('en', {timeZone: rule.timezone}); } catch { throw Error('时区无效'); }
@@ -25,7 +25,7 @@ export function generateSchedule(drama, rule) {
   const premiereDays=phases.find(p=>p.from===rule.premiere)?.weekdays||rule.weekdays;
   if(weekly&&!premiereDays.includes(first.getUTCDay()))throw Error('首播日期必须属于选定的播出日');
   const dates=[];let day=new Date(+first);
-  while(dates.length<totalEpisodes){const key=day.toISOString().slice(0,10);let days=rule.weekdays;for(const phase of [...phases].sort((a,b)=>a.from.localeCompare(b.from)))if(key>=phase.from)days=phase.weekdays;
+  while(dates.length<totalEpisodes){if(unknown&&day>horizon)break;const key=day.toISOString().slice(0,10);let days=rule.weekdays;for(const phase of [...phases].sort((a,b)=>a.from.localeCompare(b.from)))if(key>=phase.from)days=phase.weekdays;
    const release=weekly?days.includes(day.getUTCDay()):true;
    if(release)for(let n=0;n<episodesPerRelease&&dates.length<totalEpisodes;n++)dates.push(key);
    day.setUTCDate(day.getUTCDate()+(weekly?1:intervalDays));
