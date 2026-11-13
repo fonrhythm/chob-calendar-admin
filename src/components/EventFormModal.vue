@@ -41,7 +41,7 @@ form.value.attributes = { ...(form.value.attributes || {}) };
 form.value.attributes.rich_text = { ...(form.value.attributes.rich_text || {}) };
 form.value.attributes.spectator_status = ['allowed','not_allowed'].includes(form.value.attributes.spectator_status) ? form.value.attributes.spectator_status : '';
 form.value.attributes.field_states ||= {};
-const regionAliases = { thailand: '泰国', thai: '泰国', china: '中国', oversea: '海外', overseas: '海外', '其他国家或地区': '海外', '泰国': '泰国', '中国': '中国', '海外': '海外' };
+const regionAliases = { thailand: '泰国', thai: '泰国', china: '海外', oversea: '海外', overseas: '海外', '其他国家或地区': '海外', '泰国': '泰国', '中国': '海外', '海外': '海外' };
 form.value.attributes.region = regionAliases[String(form.value.attributes.region || '').toLowerCase()] || '';
 const multiDay = ref(!!form.value.attributes.end_date && form.value.attributes.end_date > form.value.date);
 const tasks = ref(JSON.parse(JSON.stringify(props.tasks || [])));
@@ -130,7 +130,7 @@ const artistTypes = computed(() => [
     ].filter(Boolean),
   ),
 ]);
-const regions = ['泰国', '中国', '海外'];
+const regions = ['泰国', '海外'];
 async function postpone() {
   if (!props.event || busy.value) return;
   if (!window.confirm(datePending.value ? '将这场活动标记为延期，日期另行通知？' : `将这场活动更新到 ${newDate.value}？沿用原活动和关联记录，不新增活动。`)) return;
