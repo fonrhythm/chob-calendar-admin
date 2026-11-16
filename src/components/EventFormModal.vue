@@ -17,6 +17,7 @@ import { eventTime, imageUrls, recordLabel } from '@/lib/event-fields';
 import { newTask, TASK_TYPES, taskCategory, safeWebUrl } from '@/lib/tasks';
 const props = defineProps({
   event: Object,
+  copying: Boolean,
   tasks: Array,
   artists: Array,
   types: Array,
@@ -267,7 +268,7 @@ onUnmounted(() => {
       class="event-form"
     >
       <header>
-        <h2 id="event-dialog-title">{{ event ? '编辑活动' : '新增活动' }}</h2>
+        <p v-if="copying" class="text-sm text-gray-500">已复制为独立的新活动，请修改日期、时间和嘉宾。事项与历史记录不会复制，保存草稿后可继续编辑或发布。</p><h2 id="event-dialog-title">{{ copying ? '复制活动' : event ? '编辑活动' : '新增活动' }}</h2>
         <button
           type="button"
           :disabled="busy"

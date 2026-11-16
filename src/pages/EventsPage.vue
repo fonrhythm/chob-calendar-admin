@@ -1,4 +1,6 @@
 <script setup>
+import {copyEvent} from '@/lib/copy-event.js';
+const copying=ref(false);
 import { eventArtistTypeKeys, artistTypeLabels } from '@/lib/artistFilters';
 import { supabase } from '@/config/supabase';
 import { allRows, rpc } from '@/lib/api';
@@ -200,7 +202,9 @@ watch([search, status, company, eventType, artistType, sort], () => {
   page.value = 1;
   selected.value = [];
 });
+function duplicate(event){copying.value=true;editing.value=copyEvent(event);modal.value=true;}
 function edit(event = null) {
+  copying.value=false;
   editing.value = event;
   modal.value = true;
 }
@@ -395,7 +399,8 @@ onUnmounted(() => clearInterval(completionTimer));
                 <p class="text-sm text-gray-500">{{ event.date }}<span v-if="event.attributes?.end_date"> — {{ event.attributes.end_date }}</span> · {{ event.time || '时间待定' }} · {{ event.location || '场地待定' }} · {{ EVENT_STATUSES[event.status] || event.status }}</p>
                 <button class="btn-ghost" @click="edit(event)">编辑</button>
                 <button class="btn-ghost" :disabled="actionBusy" @click="mergePair(pair, event.id)">合并并保留此活动</button>
-                <button class="btn-ghost text-red-700" :disabled="actionBusy" @click="runAction([event.id], 'delete')">删除</button>
+                <button class="btn-ghost whitespace-nowrap" @click="duplicate(event)">复制活动</button>
+                  <button class="btn-ghost text-red-700" :disabled="actionBusy" @click="runAction([event.id], 'delete')">删除</button>
               </div>
             </div>
             <div v-if="pendingMerge?.pair.key === pair.key" class="border rounded-lg p-3 mt-3">
@@ -498,6 +503,7 @@ onUnmounted(() => clearInterval(completionTimer));
                   >
                     编辑
                   </button>
+                  <button class="btn-ghost whitespace-nowrap" @click="duplicate(event)">复制活动</button>
                   <button class="btn-ghost text-red-700" :disabled="actionBusy" @click="runAction([event.id], 'delete')">删除</button>
                 </td>
               </tr>
@@ -597,6 +603,7 @@ onUnmounted(() => clearInterval(completionTimer));
     <EventFormModal
       v-if="modal"
       :event="editing"
+      :copying="copying"
       :tasks="editingTasks"
       :artists="workspace.artists"
       :types="workspace.types"
