@@ -1,4 +1,5 @@
 <script setup>
+import MiniSubmissionQueue from '../components/MiniSubmissionQueue.vue';
 import { normalizeSearch } from '../lib/artistFilters';
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute } from 'vue-router';
@@ -201,6 +202,7 @@ watch(() => route.name, (name) => {
 });
 </script>
 <template>
+<MiniSubmissionQueue />
   <section class="space-y-5">
     <header>
       <h1 class="text-2xl font-bold">{{ route.name === 'Announcements' ? '消息/公告管理' : '消息与核实' }}</h1>
