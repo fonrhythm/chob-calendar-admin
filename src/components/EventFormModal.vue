@@ -18,6 +18,7 @@ import { newTask, TASK_TYPES, taskCategory, safeWebUrl } from '@/lib/tasks';
 const props = defineProps({
   event: Object,
   copying: Boolean,
+  events: {type:Array,default:()=>[]},
   tasks: Array,
   artists: Array,
   types: Array,
@@ -39,6 +40,7 @@ const form = ref(
     : newEvent(),
 );
 form.value.attributes = { ...(form.value.attributes || {}) };
+form.value.attributes.parent_event_id ||= form.value.parent_event_id || ''; 
 form.value.attributes.rich_text = { ...(form.value.attributes.rich_text || {}) };
 form.value.attributes.spectator_status = ['allowed','not_allowed'].includes(form.value.attributes.spectator_status) ? form.value.attributes.spectator_status : '';
 form.value.attributes.field_states ||= {};
@@ -600,6 +602,7 @@ onUnmounted(() => {
         </fieldset>
       </div>
       <div v-if="error" role="alert" class="form-problem">{{ error }}</div>
+      <section class="panel"><h3>系列活动 / 场次</h3><p class="text-sm text-gray-500">同一音乐节每天分别录入日期、嘉宾和时间表。第一场作为系列入口，后续场次选择同一入口；内容完全相同才使用连续多日。</p><label>所属系列<select v-model="form.attributes.parent_event_id"><option value="">独立活动 / 系列第一场</option><option v-for="e in events.filter(e=>e.id!==form.id&&!e.parent_event_id&&!e.attributes?.parent_event_id)" :key="e.id" :value="e.id">{{e.title}} · {{e.date}}</option></select></label></section>
       <EventProvenance :form="form" :provenance="provenance" />
       <div class="publish-options">
         <label

@@ -58,7 +58,6 @@ const labels={date:'日期',time:'时间',location:'场地',artist_ids:'艺人',
   </details>
   <label v-for="(label,field) in labels" :key="field">{{label}}信息状态<select v-model="form.attributes.field_states[field]"><option value="">沿用已有数据</option><option value="known">已知</option><option value="tba">官方尚未公布（需来源）</option><option value="missing">Chob 缺数据</option></select></label>
   <label>标准场地<select v-model="form.attributes.venue_id"><option value="">沿用旧场地文字</option><option v-for="v in venues" :key="v.id" :value="v.id">{{v.name}} · {{v.city}}</option></select></label>
-  <label>上级活动<select v-model="form.attributes.parent_event_id"><option value="">无</option><option v-for="e in events" :key="e.id" :value="e.id">{{e.title}} · {{e.date}}</option></select></label>
   <label>公司<select v-model="company"><option value="">选择公司</option><option v-for="c in companies" :key="c.id" :value="c.id">{{c.name}}</option></select></label>
   <label>公司角色<select v-model="role"><option v-for="r in ['organizer','promoter','brand','agency','label','sponsor','ticketing']" :key="r">{{r}}</option></select></label>
   <button type="button" @click="linkCompany">添加关系（随活动保存）</button><p v-for="c in provenance.companies||[]" :key="c.company_id+c.role">{{companies.find(x=>x.id===c.company_id)?.name}} · {{c.role}}</p>
