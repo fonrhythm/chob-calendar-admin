@@ -1,0 +1,10 @@
+<script setup>
+import {ref,onMounted} from 'vue';
+import {allRows,rpc} from '@/lib/api';
+const rows=ref([]),error=ref(''),busy=ref(false),replies=ref({}),filter=ref('pending');
+async function load(){try{error.value='';rows.value=(await allRows('chob_submission_reviews')).sort((a,b)=>b.created_at.localeCompare(a.created_at));}catch(e){error.value=e.message}}
+async function review(row,decision){if(busy.value)return;if(!confirm(decision==='approved'?'确认审核通过并发布此活动及事项？':'确认拒绝此投稿？'))return;busy.value=true;try{await rpc('chob_review_submission',{target:row.id,decision,response:replies.value[row.id]||''});await load()}catch(e){error.value=e.message}finally{busy.value=false}}
+onMounted(load);
+</script>
+<template><section class="queue"><h2>小程序活动投稿与回复</h2><p>审核通过会发布活动；回复会同步至用户的“投稿与回复”。剧集投稿请前往 Drama → 剧集投稿与纠错。</p><select v-model="filter"><option value="pending">待审核</option><option value="all">全部记录</option></select><button @click="load">刷新</button><p role="alert">{{error}}</p><article v-for="row in rows.filter(r=>filter==='all'||r.status===filter)" :key="row.id"><strong>{{row.payload.activity||row.payload.name||'活动投稿'}}</strong><p>{{row.created_at}} · {{row.status}}</p><details><summary>查看完整投稿资料</summary><pre>{{JSON.stringify(row.payload,null,2)}}</pre></details><p v-if="row.reply">已回复：{{row.reply}}</p><template v-if="row.status==='pending'"><label>审核回复<textarea v-model="replies[row.id]" placeholder="向投稿者说明审核结果" maxlength="2000"/></label><button :disabled="busy" @click="review(row,'approved')">通过并发布</button><button :disabled="busy" @click="review(row,'rejected')">拒绝并回复</button></template></article><p v-if="!rows.length">暂无投稿</p></section></template>
+<style scoped>.queue{padding:24px;border:1px solid #ddd;border-radius:16px;margin-bottom:28px}.queue article{padding:20px;background:#faf8f4;margin:16px 0;border-radius:12px}.queue pre{white-space:pre-wrap;overflow-wrap:anywhere}.queue textarea{display:block;width:100%;min-height:90px;border:1px solid #ccc;padding:12px}.queue button,.queue select{padding:10px 16px;margin:8px;border:1px solid #ccc;border-radius:20px}</style>

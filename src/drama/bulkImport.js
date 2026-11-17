@@ -18,7 +18,7 @@ export function prepareDramaImport(grid,catalog){
   const names=[raw.titleZh,raw.titleEn,raw.titleTh].map(norm).filter(Boolean);if(names.some(n=>existing.has(n)||seen.has(n)))throw Error('剧名已存在或在本文件重复，本功能仅新增，不覆盖已有资料');
   const data={id:crypto.randomUUID(),titleZh:raw.titleZh||'',titleEn:raw.titleEn||'',titleTh:raw.titleTh||'',types:split(raw.types).map(t=>({'bl':'Boys Love','boys love':'Boys Love','gl':'Girls Love','girls love':'Girls Love','bg':'BG','bromance':'Bromance','群像':'群像','其他':'其他'}[norm(t)]||t)),production:raw.production||'',productionCompany:raw.productionCompany||'',images:split(raw.images),synopsis:raw.synopsis||'',source:raw.source||'',cast:[],rules:[]};
   if(!data.types.length)throw Error('请填写剧集类别，例如 BL、GL、BG、Bromance、群像或其他');
-  if(data.production&&!['已公布','未开机','已开机','已杀青'].includes(data.production))throw Error('制作进度仅支持已公布、未开机、已开机、已杀青');
+  if(data.production&&!['已公布','未开机','已开机','已杀青','待播','播出中','已完播'].includes(data.production))throw Error('制作进度仅支持已公布、未开机、已开机、已杀青、待播、播出中、已完播');
   if(data.productionCompany&&!catalog.companies.some(c=>norm(c)===norm(data.productionCompany)))throw Error('出品公司不在现有公司资料中');
   if(data.source&&!/^https?:\/\//i.test(data.source))throw Error('官方来源必须是 http/https 链接');
   data.poster=data.images[0]||'';
