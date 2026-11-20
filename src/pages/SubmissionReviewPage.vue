@@ -1,0 +1,23 @@
+<script setup>
+import {ref,computed,onMounted} from 'vue';
+import {allRows,rpc} from '@/lib/api';
+const rows=ref([]),error=ref(''),notice=ref(''),busy=ref(false),replies=ref({}),filter=ref('pending');
+const labels={pending:'待审核',approved:'已通过',rejected:'已拒绝'};
+const visible=computed(()=>rows.value.filter(r=>filter.value==='all'||r.status===filter.value));
+const images=r=>(Array.isArray(r.payload.images)?r.payload.images:[]).filter(u=>typeof u==='string'&&/^https:\/\//i.test(u));
+async function load(){try{error.value='';rows.value=(await allRows('chob_submission_reviews')).sort((a,b)=>b.created_at.localeCompare(a.created_at));}catch(e){error.value=e.message}}
+async function send(row,decision){if(busy.value)return;const response=(replies.value[row.id]||'').trim();if(!decision&&!response){error.value='请填写回复';return}if(decision&&!confirm(decision==='approved'?'确认审核通过并发布活动及事项？':'确认拒绝此投稿？'))return;busy.value=true;error.value='';try{await rpc(decision?'chob_review_submission':'chob_reply_submission',{target:row.id,response,...(decision?{decision}:{})});replies.value[row.id]='';notice.value='审核 / 回复已同步给投稿者。';await load()}catch(e){error.value=e.message}finally{busy.value=false}}
+onMounted(load);
+</script>
+<template><section class="queue"><h1>活动投稿审核</h1><p>查看资料、审核及回复用户。审核通过后的活动单独管理。</p><router-link to="/submission-events">管理投稿活动 →</router-link>
+<div class="tabs"><button v-for="(label,key) in {...labels,all:'全部'}" :key="key" :class="{selected:filter===key}" @click="filter=key">{{label}} {{rows.filter(r=>key==='all'||r.status===key).length}}</button><button @click="load">刷新</button></div><p role="alert">{{error}}</p><p role="status">{{notice}}</p>
+<article v-for="row in visible" :key="row.id"><header><h2>{{row.payload.activity||row.payload.name||'活动投稿'}}</h2><span class="badge" :class="row.status">{{labels[row.status]}}</span></header><p class="muted">{{new Date(row.created_at).toLocaleString('zh-CN')}}</p>
+<div class="posters"><a v-for="url in images(row)" :key="url" :href="url" target="_blank" rel="noopener noreferrer"><img :src="url" alt="投稿海报" loading="lazy"/></a></div>
+<dl><dt>艺人</dt><dd>{{row.payload.name||row.payload.unmatched_artist||'已关联艺人（打开活动查看）'}}</dd><dt>日期 / 时间</dt><dd>{{row.payload.date}} {{row.payload.end_date?'至 '+row.payload.end_date:''}} · {{row.payload.time||'时间待定'}}</dd><dt>城市 / 地点</dt><dd>{{row.payload.city}} {{row.payload.venue}}</dd><dt>参与方式</dt><dd>{{row.payload.participation_condition||'待补充'}}</dd><dt>备注</dt><dd>{{row.payload.note||'无'}}</dd></dl>
+<section v-if="row.payload.task_payload?.length"><h3>参与事项</h3><p v-for="(task,i) in row.payload.task_payload" :key="i">{{task.title}} · {{task.start_date}} {{task.start_time}} {{task.description}}</p></section>
+<router-link v-if="row.event_id" :to="{path:'/submission-events',query:{edit:row.event_id}}">查看 / 编辑投稿活动 →</router-link><p v-if="row.reply" class="reply">回复记录：{{row.reply}}</p>
+<label>{{row.status==='pending'?'审核回复':'补充回复'}}<textarea v-model="replies[row.id]" placeholder="回复内容会同步给投稿者" maxlength="2000"/></label>
+<template v-if="row.status==='pending'"><button :disabled="busy" @click="send(row,'approved')">通过并发布</button><button :disabled="busy" @click="send(row,'rejected')">拒绝并回复</button></template><button v-else :disabled="busy||!replies[row.id]?.trim()" @click="send(row)">发送补充回复</button></article><p v-if="!visible.length">当前没有{{filter==='all'?'投稿':labels[filter]+'的投稿'}}。</p></section></template>
+<style scoped>
+.queue{max-width:1000px}.queue h1{font-size:26px;font-weight:700}.queue h2{font-size:20px;font-weight:650}.queue a{color:#8a542f}.tabs{display:flex;flex-wrap:wrap;margin:20px 0}.queue article{padding:24px;background:white;border:1px solid #e6e2dc;margin:18px 0;border-radius:16px}.queue header{display:flex;gap:16px;justify-content:space-between;align-items:center}.badge{border-radius:20px;padding:5px 12px;background:#eee}.pending{background:#fff0cf;color:#755015}.approved{background:#e6f3e9;color:#28633a}.rejected{background:#f9e9e7;color:#8d3730}.muted{color:#777;font-size:13px;margin:12px 0}.posters{display:flex;gap:12px;overflow:auto}.posters img{width:120px;height:150px;object-fit:cover;border-radius:8px}.queue dl{display:grid;grid-template-columns:110px 1fr;gap:12px;margin:20px 0}.queue dd{overflow-wrap:anywhere}.queue dt{color:#777}.reply{white-space:pre-wrap;background:#f7f4ee;padding:16px;margin:20px 0}.queue textarea{display:block;width:100%;min-height:90px;border:1px solid #ccc;padding:12px;border-radius:10px;margin-top:8px}.queue button{padding:10px 16px;margin:8px 8px 8px 0;border:1px solid #ccc;border-radius:20px}.queue button.selected{background:#80512e;color:white}.queue button:disabled{opacity:.5}
+</style>

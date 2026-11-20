@@ -1,0 +1,1 @@
+export function scopeEventWorkspace(workspace,submitted){const matches=e=>Boolean(e.user_submitted)===submitted;const events=workspace.events.filter(matches),ids=new Set(events.map(e=>e.id));return {...workspace,events,deletedEvents:(workspace.deletedEvents||[]).filter(matches),tasks:workspace.tasks.filter(t=>ids.has(t.event_id))};}

@@ -1,4 +1,5 @@
 <script setup>
+import {scopeEventWorkspace} from '@/lib/submission-events.js';
 import {copyEvent} from '@/lib/copy-event.js';
 const copying=ref(false);
 import { eventArtistTypeKeys, artistTypeLabels } from '@/lib/artistFilters';
@@ -29,7 +30,7 @@ import {saveEventWithTasks} from '@/lib/events';
 const facebookImageEvents=computed(()=>workspace.value.events.filter(e=>(e.attributes?.picture_urls||[]).some(facebookImage)));
 async function repairImages(){if(repairBusy.value)return;repairBusy.value=true;error.value='';let savedCount=0;const failed=[];try{
  const current=await loadEventWorkspace();
- const targets=current.events.filter(e=>(e.attributes?.picture_urls||[]).some(facebookImage)).slice(0,20);
+ const targets=current.events.filter(e=>Boolean(e.user_submitted)===(route.name==='SubmissionEvents')).filter(e=>(e.attributes?.picture_urls||[]).some(facebookImage)).slice(0,20);
  for(const event of targets){try{await saveEventWithTasks(event,current.tasks.filter(t=>t.event_id===event.id));savedCount++;}catch(e){failed.push(event.title+'：'+e.message);}}
  await load();notice.value='已转存 '+savedCount+' 场活动的 FB 图片。每次最多处理 20 场，可继续处理剩余图片。';if(failed.length)error.value=failed.join('；');
  }catch(e){error.value=e.message;}finally{repairBusy.value=false;}}
@@ -215,7 +216,7 @@ async function load() {
   ready.value = false;
   try {
     const [nextWorkspace, nextIgnored] = await Promise.all([loadEventWorkspace(), allRows('chob_similarity_ignores')]);
-    workspace.value = nextWorkspace;
+    workspace.value = scopeEventWorkspace(nextWorkspace, route.name === 'SubmissionEvents');
     ignoredRecords.value = nextIgnored;
     ready.value = true;
     page.value = Math.min(page.value, totalPages.value);
@@ -272,7 +273,7 @@ onUnmounted(() => clearInterval(completionTimer));
     <header class="flex flex-wrap gap-4 items-center justify-between">
       <div>
         <h1 class="text-2xl font-bold">
-          {{ isTasks ? '事项管理' : '活动管理' }}
+          {{ route.name === 'SubmissionEvents' ? '投稿活动管理' : isTasks ? '事项管理' : '活动管理' }}
         </h1>
         <p class="text-gray-500 mt-2">
           {{
@@ -282,7 +283,7 @@ onUnmounted(() => clearInterval(completionTimer));
           }}
         </p>
       </div>
-      <div class="flex flex-wrap gap-3">
+      <div v-if="route.name !== 'SubmissionEvents'" class="flex flex-wrap gap-3">
         <button class="btn-secondary" :disabled="!ready || loading" @click="monthlyOpen = true">月行程图导入</button>
         <button v-if="facebookImageEvents.length" class="btn-secondary" :disabled="repairBusy || loading" @click="repairImages">{{repairBusy?'正在转存 FB 图片…':'转存现有 FB 图片（'+facebookImageEvents.length+' 场）'}}</button>
         <button
@@ -400,7 +401,7 @@ onUnmounted(() => clearInterval(completionTimer));
                 <p class="text-sm text-gray-500">{{ event.date }}<span v-if="event.attributes?.end_date"> — {{ event.attributes.end_date }}</span> · {{ event.time || '时间待定' }} · {{ event.location || '场地待定' }} · {{ EVENT_STATUSES[event.status] || event.status }}</p>
                 <button class="btn-ghost" @click="edit(event)">编辑</button>
                 <button class="btn-ghost" :disabled="actionBusy" @click="mergePair(pair, event.id)">合并并保留此活动</button>
-                <button class="btn-ghost whitespace-nowrap" @click="duplicate(event)">复制活动</button><button class="btn-ghost whitespace-nowrap" @click="addSession(event)">新增场次</button>
+                <button v-if="route.name !== 'SubmissionEvents'" class="btn-ghost whitespace-nowrap" @click="duplicate(event)">复制活动</button><button v-if="route.name !== 'SubmissionEvents'" class="btn-ghost whitespace-nowrap" @click="addSession(event)">新增场次</button>
                   <button class="btn-ghost text-red-700" :disabled="actionBusy" @click="runAction([event.id], 'delete')">删除</button>
               </div>
             </div>
@@ -504,7 +505,7 @@ onUnmounted(() => clearInterval(completionTimer));
                   >
                     编辑
                   </button>
-                  <button class="btn-ghost whitespace-nowrap" @click="duplicate(event)">复制活动</button><button class="btn-ghost whitespace-nowrap" @click="addSession(event)">新增场次</button>
+                  <button v-if="route.name !== 'SubmissionEvents'" class="btn-ghost whitespace-nowrap" @click="duplicate(event)">复制活动</button><button v-if="route.name !== 'SubmissionEvents'" class="btn-ghost whitespace-nowrap" @click="addSession(event)">新增场次</button>
                   <button class="btn-ghost text-red-700" :disabled="actionBusy" @click="runAction([event.id], 'delete')">删除</button>
                 </td>
               </tr>
