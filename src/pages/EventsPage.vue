@@ -68,6 +68,38 @@ const selectable = computed(() => filtered.value.map((event) => event.id));
 function toggleAll(e) {
   selected.value = e.target.checked ? [...selectable.value] : [];
 }
+const seriesOpen = ref(false), seriesRoot = ref('');
+const seriesSelection = computed(() => workspace.value.events.filter(e => selected.value.includes(e.id)).sort((a,b) => String(a.date).localeCompare(String(b.date)) || String(a.time || '').localeCompare(String(b.time || '')) || a.id.localeCompare(b.id)));
+function openSeries() {
+  if (seriesSelection.value.length < 2) return;
+  seriesRoot.value = seriesSelection.value[0].id;
+  seriesOpen.value = true;
+}
+async function saveSeries() {
+  if (actionBusy.value) return;
+  actionBusy.value = true; error.value = '';
+  let saved = 0;
+  try {
+    const current = await loadEventWorkspace();
+    const ids = [...selected.value];
+    const root = current.events.find(e => e.id === seriesRoot.value);
+    if (!root || !ids.includes(root.id) || ids.length < 2) throw new Error('请选择至少两场活动及系列入口。');
+    const parent = e => e.parent_event_id || e.attributes?.parent_event_id || '';
+    if (current.events.some(e => ids.includes(parent(e)) && !ids.includes(e.id))) throw new Error('所选活动还关联着未勾选的场次，请将这些场次一起勾选后重试，避免拆散原系列。');
+    const rows = ids.map(id => current.events.find(e => e.id === id));
+    if (rows.some(e => !e)) throw new Error('活动已发生变化，请刷新后重新选择。');
+    for (const event of [root, ...rows.filter(e => e.id !== root.id)]) {
+      const parentId = event.id === root.id ? '' : root.id;
+      await saveEventWithTasks({...event, parent_event_id: parentId || null, attributes: {...event.attributes, parent_event_id: parentId}}, current.tasks.filter(t => t.event_id === event.id));
+      saved++;
+    }
+    seriesOpen.value = false; selected.value = [];
+    await load(); notice.value = `已将 ${saved} 场活动归为同一系列，各场日期及资料保持独立。`;
+  } catch(e) {
+    error.value = `归组未完成（已保存 ${saved} 场）：${e.message}`;
+    if (saved) { seriesOpen.value = false; const message = error.value; await load(); error.value = message; }
+  } finally { actionBusy.value = false; }
+}
 async function runAction(ids, operation) {
   if (!ids.length || actionBusy.value) return;
   const label = operation === 'delete' ? '移入回收站（3天后自动清除）' : operation === 'restore' ? '恢复为草稿' : '即刻发布';
@@ -432,6 +464,7 @@ onUnmounted(() => clearInterval(completionTimer));
         </details>
         <div class="flex flex-wrap items-center gap-3">
           <label><input type="checkbox" :checked="!!selectable.length && selected.length === selectable.length" @change="toggleAll" /> 全选当前筛选结果</label>
+          <button v-if="route.name !== 'SubmissionEvents'" class="btn-secondary" :disabled="actionBusy || selected.length < 2" @click="openSeries">归为同一系列</button>
           <button class="btn-secondary" :disabled="actionBusy || !selected.length" @click="runAction(selected, 'publish')">批量即刻发布</button>
           <button class="btn-secondary text-red-700" :disabled="actionBusy || !selected.length" @click="runAction(selected, 'delete')">批量删除</button>
         </div>
@@ -616,4 +649,18 @@ onUnmounted(() => clearInterval(completionTimer));
       @saved="saved"
     />
   </div>
+  <div v-if="seriesOpen" class="series-overlay" @click.self="!actionBusy && (seriesOpen = false)">
+    <section role="dialog" aria-modal="true" aria-labelledby="series-title" class="series-dialog">
+      <h2 id="series-title">归为同一系列</h2>
+      <p>已选择 {{ seriesSelection.length }} 场。选择一场作为系列入口，各场保留独立的日期、嘉宾和海报。</p>
+      <label>系列入口<select v-model="seriesRoot" :disabled="actionBusy"><option v-for="event in seriesSelection" :key="event.id" :value="event.id">{{ event.date }} · {{ event.title }}</option></select></label>
+      <ul><li v-for="event in seriesSelection" :key="event.id">{{ event.date }} {{ event.time }} · {{ event.title }}<strong v-if="event.id === seriesRoot"> · 入口</strong></li></ul>
+      <p v-if="error" role="alert" class="text-red-700">{{ error }}</p>
+      <footer><button class="btn-secondary" :disabled="actionBusy" @click="seriesOpen = false">取消</button><button class="btn-primary" :disabled="actionBusy" @click="saveSeries">{{ actionBusy ? '保存中…' : '确认归组' }}</button></footer>
+    </section>
+  </div>
 </template>
+
+<style scoped>
+.series-overlay{position:fixed;inset:0;z-index:100;background:#0005;backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:20px}.series-dialog{width:560px;max-width:100%;max-height:85dvh;overflow:auto;background:#f7f6f2;border:1px solid #dedbd4;border-radius:22px;padding:24px;box-shadow:0 24px 80px #0003}.series-dialog h2{font-size:22px;font-weight:700}.series-dialog p{font-size:14px;line-height:1.7;margin:12px 0;color:#6e706a}.series-dialog label{display:block;font-weight:600;font-size:14px}.series-dialog select{display:block;width:100%;margin-top:8px;background:white;border:1px solid #dedbd4;border-radius:12px;padding:12px;min-width:0}.series-dialog ul{max-height:240px;overflow:auto;margin:16px 0;font-size:13px}.series-dialog li{padding:10px 0;border-bottom:1px solid #e2dfd9;overflow-wrap:anywhere}.series-dialog footer{display:flex;justify-content:flex-end;gap:10px}
+</style>
