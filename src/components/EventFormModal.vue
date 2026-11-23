@@ -270,7 +270,7 @@ onUnmounted(() => {
       class="event-form"
     >
       <header>
-        <p v-if="copying" class="text-sm text-gray-500">已复制为独立的新活动，请修改日期、时间和嘉宾。事项与历史记录不会复制，保存草稿后可继续编辑或发布。</p><h2 id="event-dialog-title">{{ copying ? '复制活动' : event ? '编辑活动' : '新增活动' }}</h2>
+        <div class="dialog-heading"><h2 id="event-dialog-title">{{ copying ? '复制活动' : event ? '编辑活动' : '新增活动' }}</h2><p v-if="copying" class="copy-help">已创建独立副本，请核对日期、时间和嘉宾。事项与历史记录不会复制。</p></div>
         <button
           type="button"
           :disabled="busy"
@@ -600,10 +600,10 @@ onUnmounted(() => {
             此活动已取消，提交仍保留取消状态。
           </p>
         </fieldset>
+      <section class="series-panel"><h3>系列活动 / 场次</h3><p class="text-sm text-gray-500">同一音乐节每天分别录入日期、嘉宾和时间表。第一场作为系列入口，后续场次选择同一入口；内容完全相同才使用连续多日。</p><label>所属系列<select v-model="form.attributes.parent_event_id"><option value="">独立活动 / 系列第一场</option><option v-for="e in events.filter(e=>e.id!==form.id&&!e.parent_event_id&&!e.attributes?.parent_event_id)" :key="e.id" :value="e.id">{{e.title}} · {{e.date}}</option></select></label></section>
+      <EventProvenance :form="form" :provenance="provenance" />
       </div>
       <div v-if="error" role="alert" class="form-problem">{{ error }}</div>
-      <section class="panel"><h3>系列活动 / 场次</h3><p class="text-sm text-gray-500">同一音乐节每天分别录入日期、嘉宾和时间表。第一场作为系列入口，后续场次选择同一入口；内容完全相同才使用连续多日。</p><label>所属系列<select v-model="form.attributes.parent_event_id"><option value="">独立活动 / 系列第一场</option><option v-for="e in events.filter(e=>e.id!==form.id&&!e.parent_event_id&&!e.attributes?.parent_event_id)" :key="e.id" :value="e.id">{{e.title}} · {{e.date}}</option></select></label></section>
-      <EventProvenance :form="form" :provenance="provenance" />
       <div class="publish-options">
         <label
           ><input
@@ -897,4 +897,16 @@ onUnmounted(() => {
   width: 16px;
   height: 16px;
 }
+
+.event-dialog{overflow:hidden;box-sizing:border-box}
+.event-form{height: min(900px,94dvh);overflow:hidden;min-width:0}
+.event-form header{gap:16px;border-bottom:1px solid #dedbd4}
+.dialog-heading{min-width:0;flex:1}.event-form h2{white-space:nowrap;margin:0}
+.copy-help{font-size:13px;line-height:1.6;color:#777970;margin:8px 0 0;max-width:560px}
+.close{flex-shrink:0}.event-body{flex:1;overflow-x:hidden;overscroll-behavior:contain}
+.event-body fieldset{min-width:0}.series-panel{padding:20px;background:#f7f6f2;border:1px solid #dedbd4;border-radius:16px;margin:12px 0 20px}
+.series-panel h3{font-size:16px;font-weight:650;margin-bottom:8px}.series-panel p{font-size:13px;line-height:1.7;color:#777970;margin-bottom:16px}
+.series-panel label{display:block;font-size:14px;font-weight:600}.series-panel select{display:block;width:100%;min-width:0;margin-top:8px;padding:12px;background:white;border:1px solid #dedbd4;border-radius:10px;font:inherit;text-overflow:ellipsis}
+.publish-options{flex-shrink:0;border-top:1px solid #dedbd4;padding:12px 32px;background:#f7f6f2;font-size:14px}
+.event-form footer{background:#f7f6f2}.event-form footer button{font-size:14px;padding:12px 8px}
 </style>
