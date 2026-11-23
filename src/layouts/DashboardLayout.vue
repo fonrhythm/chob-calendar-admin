@@ -1,4 +1,5 @@
 <script setup>
+import SubmissionReminder from '@/components/SubmissionReminder.vue';
 import { computed, ref, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore';
@@ -25,6 +26,8 @@ const items = computed(() => [
     : []),
   ...(auth.userProfile?.role === 'admin'
     ? [
+        {path:'/submissions',label:'活动投稿审核'},
+        {path:'/submission-events',label:'投稿活动管理'},
         {path:'/drama',label:'剧集管理'},
         { path: '/analytics', label: '数据统计与分析' },
         { path: '/community', label: '消息与核实' },
@@ -108,6 +111,6 @@ async function logout() {
         </p>
       </div>
     </aside>
-    <main class="md:ml-64 p-4 sm:p-8 max-w-screen-2xl"><router-view /></main>
+    <main class="md:ml-64 p-4 sm:p-8 max-w-screen-2xl"><SubmissionReminder v-if="auth.userProfile?.role === 'admin'"/><router-view :key="route.name" /></main>
   </div>
 </template>

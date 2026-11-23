@@ -52,6 +52,8 @@ const routes = [
     component: DashboardLayout,
     meta: { requiresAuth: true },
     children: [
+      {path:'submissions',name:'Submissions',component:()=>import('@/pages/SubmissionReviewPage.vue'),meta:{title:'活动投稿审核',adminOnly:true}},
+      {path:'submission-events',name:'SubmissionEvents',component:EventsPage,meta:{title:'投稿活动管理',adminOnly:true}},
       {path:'drama',name:'Drama',component:()=>import('@/pages/DramaPage.vue'),meta:{title:'剧集管理',adminOnly:true}},
       {path:'analytics',name:'Analytics',component:()=>import('@/pages/AnalyticsPage.vue'),meta:{title:'数据统计与分析',adminOnly:true}},
       {
